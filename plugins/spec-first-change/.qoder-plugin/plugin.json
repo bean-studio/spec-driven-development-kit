@@ -1,0 +1,16 @@
+{
+  "name": "spec-first-change",
+  "displayName": "Spec-First Change",
+  "version": "0.0.1",
+  "description": "Enforce a spec-first development workflow before any code change, ensuring specs are reviewed, accurate, and updated.",
+  "descriptionZh": "在编写代码前强制执行规格优先工作流，确保规格文档已审查、准确并更新。",
+  "author": {
+    "name": "Hippo"
+  },
+  "homepage": "https://github.com/HeyLuka/spec-driven-development-kit",
+  "repository": "https://github.com/HeyLuka/spec-driven-development-kit",
+  "keywords": ["qoder-plugin", "skill", "spec-driven", "spec-first"],
+  "category": "developer-tools",
+  "tags": ["skill", "spec-driven-development"],
+  "skills": "./skills/"
+}

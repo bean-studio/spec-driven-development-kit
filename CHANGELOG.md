@@ -5,6 +5,17 @@ All notable releases for the spec-driven development kit are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Qoder-native plugins** — Each skill is now packaged as a standalone Qoder plugin under `plugins/`:
+  - `plugins/spec-first-change/` — standalone plugin with `.qoder-plugin/plugin.json`
+  - `plugins/submit-pr/` — standalone plugin with `.qoder-plugin/plugin.json`
+  - `plugins/jira-ticket-work/` — standalone plugin with `CONNECTORS.md` documenting Atlassian MCP server dependency
+- Plugins can be installed independently via `qodercli plugin install --scope local`
+- README updated with plugin-based installation instructions (Option A) alongside manual installation (Option B)
+
 ## [0.0.1] — 2026-07-21
 
 ### Added

@@ -1,0 +1,16 @@
+{
+  "name": "jira-ticket-work",
+  "displayName": "JIRA Ticket Work",
+  "version": "0.0.1",
+  "description": "End-to-end JIRA ticket workflow orchestration, taking a ticket from scope review through spec-driven implementation, acceptance criteria validation, PR submission, and ticket resolution.",
+  "descriptionZh": "端到端 JIRA 工单工作流编排，从范围审查到规格驱动实现、验收标准验证、PR 提交和工单解决。",
+  "author": {
+    "name": "Hippo"
+  },
+  "homepage": "https://github.com/HeyLuka/spec-driven-development-kit",
+  "repository": "https://github.com/HeyLuka/spec-driven-development-kit",
+  "keywords": ["qoder-plugin", "skill", "jira", "workflow", "spec-driven"],
+  "category": "developer-tools",
+  "tags": ["skill", "jira", "project-management", "spec-driven-development"],
+  "skills": "./skills/"
+}

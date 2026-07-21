@@ -50,9 +50,50 @@ End-to-end JIRA ticket workflow orchestration. Takes a ticket from scope review 
 
 ## Getting Started
 
-1. Install the skills in your project's `.qoder/skills/` or `.agents/skills/` directory
+### Option A: Install as Qoder Plugins (Recommended)
+
+Each skill is packaged as a standalone Qoder-native plugin. Install only the ones you need:
+
+```bash
+# Install a single plugin
+qodercli plugin install --scope local /path/to/spec-driven-development-kit/plugins/spec-first-change
+qodercli plugin install --scope local /path/to/spec-driven-development-kit/plugins/submit-pr
+qodercli plugin install --scope local /path/to/spec-driven-development-kit/plugins/jira-ticket-work
+```
+
+Plugins can be installed independently — pick just `submit-pr` without the full kit.
+
+**Prerequisites for `jira-ticket-work`:** See [CONNECTORS.md](plugins/jira-ticket-work/CONNECTORS.md) for Atlassian MCP server setup and companion plugin requirements.
+
+### Option B: Manual Skill Installation
+
+1. Copy the desired skill from `skills/` into your project's `.qoder/skills/` or `.agents/skills/` directory
 2. Invoke a skill using the `/skill-name` command
 3. Follow the workflow steps outlined in each skill
+
+### Using the Skills
+
+1. Invoke a skill using the `/skill-name` command
+2. Follow the workflow steps outlined in each skill
+
+## Plugin Structure
+
+```
+plugins/
+├── spec-first-change/     # Standalone plugin: spec-first workflow
+│   ├── .qoder-plugin/plugin.json
+│   ├── README.md
+│   └── skills/spec-first-change/SKILL.md
+├── submit-pr/             # Standalone plugin: PR submission workflow
+│   ├── .qoder-plugin/plugin.json
+│   ├── README.md
+│   └── skills/submit-pr/SKILL.md
+└── jira-ticket-work/      # Standalone plugin: JIRA ticket orchestration
+    ├── .qoder-plugin/plugin.json
+    ├── README.md
+    ├── CONNECTORS.md
+    └── skills/jira-ticket-work/SKILL.md
+```
 
 ## Philosophy
 
