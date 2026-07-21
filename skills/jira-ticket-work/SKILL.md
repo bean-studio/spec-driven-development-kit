@@ -25,12 +25,13 @@ spec-driven development kit:
 │                  JIRA Ticket Workflow                    │
 │                                                         │
 │  1. Fetch & Review Ticket                               │
-│  2. Clarify Scope (interactive)                         │
-│  3. Spec-Driven Implementation  → /spec-first-change    │
-│  4. Validate Acceptance Criteria                        │
-│  5. Submit PR                   → /submit-pr            │
-│  6. Wait for Merge                                      │
-│  7. Resolve Ticket                                      │
+│  2. Create Working Branch                               │
+│  3. Clarify Scope (interactive)                         │
+│  4. Spec-Driven Implementation  → /spec-first-change    │
+│  5. Validate Acceptance Criteria                        │
+│  6. Submit PR                   → /submit-pr            │
+│  7. Wait for Merge & Merge Back                         │
+│  8. Resolve Ticket                                      │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -116,7 +117,31 @@ show_widget({
    - Use `getTransitionsForJiraIssue` to find the "In Progress" transition
    - Apply it via `transitionJiraIssue`
 
-### Step 2: Clarify Scope
+### Step 2: Create Working Branch
+
+Never work directly on the base branch (`main`). Create a dedicated working
+branch for every ticket:
+
+1. **Ensure the base branch is up to date**:
+   ```bash
+   git fetch origin
+   git checkout <base-branch>
+   git pull origin <base-branch>
+   ```
+2. **Generate a branch name** from the ticket key and a short slug:
+   - Format: `<ticket-key>/<short-slug>` (e.g., `KAN-14/add-plugin-support`)
+   - Derive the slug from the ticket summary: lowercase, kebab-case, max 5
+     words, no special characters.
+   - If a `branchPrefix` is configured in `jira-ticket-work.json`, prepend it
+     (e.g., `feature/KAN-14/add-plugin-support`).
+3. **Create and switch to the branch**:
+   ```bash
+   git checkout -b <branch-name>
+   ```
+4. **Confirm the branch** with the user before proceeding. Allow them to
+   rename it if desired.
+
+### Step 3: Clarify Scope
 
 Review the ticket for gaps, ambiguities, or open questions:
 
@@ -136,7 +161,9 @@ Review the ticket for gaps, ambiguities, or open questions:
 4. **Record the finalised scope** as the working context for subsequent
    steps.
 
-### Step 3: Spec-Driven Implementation
+### Step 4: Spec-Driven Implementation
+
+All implementation work happens on the **working branch** created in Step 2.
 
 Invoke the **`spec-first-change`** skill workflow:
 
@@ -146,15 +173,15 @@ Invoke the **`spec-first-change`** skill workflow:
    - Verify spec accuracy
    - Propose and apply spec updates (with user approval)
    - Implement against verified specs
-3. **Implementation notes to capture** (for Step 7):
+3. **Implementation notes to capture** (for Step 8):
    - Which spec files were updated and why
    - Key design decisions made during implementation
    - Any deviations from the original ticket scope (with justification)
 
-**Do not proceed to Step 4 until implementation is complete and the user
+**Do not proceed to Step 5 until implementation is complete and the user
 confirms they are satisfied with the result.**
 
-### Step 4: Validate Acceptance Criteria
+### Step 5: Validate Acceptance Criteria
 
 Systematically verify each acceptance criterion from the ticket:
 
@@ -170,51 +197,81 @@ Systematically verify each acceptance criterion from the ticket:
 4. **If any criterion is not met**:
    - Return to Step 3 to address the gap
    - Re-validate after fixes
-5. **Only proceed to Step 5 when all criteria are satisfied.**
+5. **Only proceed to Step 6 when all criteria are satisfied.**
 
-### Step 5: Submit PR
+### Step 6: Submit PR
+
+All commits are on the **working branch**. The PR targets the **base branch**.
 
 Invoke the **`submit-pr`** skill workflow:
 
-1. Pass the ticket key for the PR body's linked tickets section.
-2. Follow the full submit-pr workflow:
+1. **Commit all changes** on the working branch (if not already committed):
+   ```bash
+   git add -A
+   git commit -m "<descriptive message referencing ticket key>"
+   ```
+2. **Push the working branch** to the remote:
+   ```bash
+   git push origin <branch-name>
+   ```
+3. Pass the ticket key for the PR body's linked tickets section.
+4. Follow the full submit-pr workflow:
    - Run all configured tests
    - Assemble the PR body from the template
    - Pre-fill the PR body with:
      - **Summary**: Generated from the ticket summary and implementation
        notes
-     - **Changes**: From the git diff
+     - **Changes**: From the git diff (`<base-branch>...<branch-name>`)
      - **Testing**: From the test results
      - **Linked Tickets**: The JIRA ticket key (e.g., `Relates to KAN-12`)
    - Confirm PR details with the user
-   - Create the PR
-3. **Record the PR URL** for Step 7.
+   - Create the PR (base: `<base-branch>`, head: `<branch-name>`)
+5. **Record the PR URL** for Step 8.
 
 **If tests fail**, the submit-pr skill blocks PR creation. Help the user
-fix the issues, then re-run Step 5.
+fix the issues on the working branch, then re-run Step 6.
 
-### Step 6: Wait for Merge
+### Step 7: Wait for Merge & Merge Back
 
 After the PR is created:
 
 1. **Inform the user** that the PR is ready for review.
 2. **Render a status widget** showing:
-   - PR URL and status (open/merged)
+   - PR URL and status (open/approved/merged)
    - Ticket key and summary
-   - Workflow progress (Step 6 of 7 — waiting for merge)
+   - Working branch name
+   - Workflow progress (Step 7 of 8 — waiting for review & merge)
 3. **If the user asks to check PR status**, use the git CLI or hosting
    platform CLI to check:
    ```bash
    gh pr status    # GitHub
    glab mr status  # GitLab
    ```
-4. **When the PR is merged**, proceed to Step 7.
+4. **When the PR is approved and merged** (via the hosting platform's merge
+   button — the merge integrates the working branch into the base branch):
    - The user can explicitly tell you "the PR was merged" to trigger this.
    - Or you can check periodically if asked.
+5. **Switch back to the base branch and pull the merge**:
+   ```bash
+   git checkout <base-branch>
+   git pull origin <base-branch>
+   ```
+6. **Clean up the working branch**:
+   - Delete the local branch:
+     ```bash
+     git branch -d <branch-name>
+     ```
+   - Optionally delete the remote branch (if not auto-deleted by the hosting
+     platform):
+     ```bash
+     git push origin --delete <branch-name>
+     ```
+7. **If branch deletion fails** (e.g., unmerged commits), warn the user and
+   offer to force-delete (`-D`) or keep the branch for later review.
 
-### Step 7: Resolve Ticket
+### Step 8: Resolve Ticket
 
-After the PR is merged:
+After the PR is merged and the base branch is up to date:
 
 1. **Add an implementation comment** to the JIRA ticket using
    `addCommentToJiraIssue`:
@@ -240,7 +297,8 @@ After the PR is merged:
    - Apply it via `transitionJiraIssue`
 3. **Render a completion widget** confirming:
    - Ticket is resolved
-   - PR is merged
+   - PR is merged into the base branch
+   - Working branch has been cleaned up
    - All acceptance criteria were met
    - Link to the PR and ticket
 
@@ -264,20 +322,30 @@ If the ticket is already in an "In Progress" state:
    - Start fresh (noting what was already done)
 3. Adjust the workflow accordingly.
 
+### Working Branch Has Uncommitted Changes
+
+If the user switches context or the workflow is interrupted:
+
+1. Check for uncommitted changes on the working branch.
+2. Stash or commit them before switching branches.
+3. When resuming, switch back to the working branch and pop the stash if needed.
+
 ### PR Is Rejected or Changes Requested
 
 If the PR review results in requested changes:
 
 1. Note the review feedback.
-2. Return to Step 3 to implement the requested changes.
-3. Re-run Steps 4–5 (validate criteria, update PR or create a new one).
+2. Ensure you are on the **working branch**.
+3. Return to Step 4 to implement the requested changes.
+4. Re-run Steps 5–6 (validate criteria, push updates, update PR or create
+   a new one).
 
 ### Ticket Scope Changes Mid-Implementation
 
 If the user or ticket reporter changes the scope:
 
-1. Pause implementation.
-2. Re-run Step 2 (Clarify Scope) with the updated ticket.
+1. Pause implementation (stay on the working branch).
+2. Re-run Step 3 (Clarify Scope) with the updated ticket.
 3. Re-run the spec-first-change workflow if specs need updating.
 4. Continue from where implementation left off.
 
@@ -291,10 +359,12 @@ Optional configuration at the repo root:
 {
   "cloudId": "string (default Atlassian cloud ID)",
   "defaultBaseBranch": "string (default: main)",
+  "branchPrefix": "string (optional prefix for working branches, e.g. 'feature/')",
   "autoTransition": {
     "onStart": "boolean (auto-transition to In Progress, default: true)",
     "onComplete": "boolean (auto-transition to Done after merge, default: true)"
   },
+  "autoCleanupBranch": "boolean (delete local and remote branch after merge, default: true)",
   "commentOnComplete": "boolean (add implementation comment, default: true)"
 }
 ```
@@ -303,8 +373,8 @@ Optional configuration at the repo root:
 
 | Workflow Step | Skill Used | Purpose |
 |---|---|---|
-| Step 3: Implementation | `spec-first-change` | Spec-driven code changes |
-| Step 5: PR Submission | `submit-pr` | Test validation + PR creation |
+| Step 4: Implementation | `spec-first-change` | Spec-driven code changes on working branch |
+| Step 6: PR Submission | `submit-pr` | Test validation + PR creation from working branch |
 
 Both skills are invoked as part of this workflow. They can also be used
 independently for ad-hoc tasks outside the JIRA workflow.
@@ -314,12 +384,15 @@ independently for ad-hoc tasks outside the JIRA workflow.
 ```
 Full ticket workflow:
   □ Fetched and reviewed ticket
+  □ Created working branch from base branch
   □ Clarified scope (resolved ambiguities)
   □ Transitioned ticket to In Progress
-  □ Ran spec-first-change workflow (specs updated, code implemented)
+  □ Ran spec-first-change workflow on working branch (specs updated, code implemented)
   □ Validated all acceptance criteria
-  □ Ran submit-pr workflow (tests passed, PR created)
-  □ PR merged
+  □ Pushed working branch and ran submit-pr workflow (tests passed, PR created)
+  □ PR approved and merged into base branch
+  □ Switched back to base branch and pulled merge
+  □ Cleaned up working branch (local + remote)
   □ Added implementation comment to ticket
   □ Transitioned ticket to Done/Resolved
 ```
