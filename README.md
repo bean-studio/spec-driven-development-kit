@@ -56,31 +56,46 @@ From a checkout of this kit, run:
 
 This vendors the kit into `your-repo/.sdd/` (policy, canonical agent sources,
 templates, guardrails, the script itself, and a `KIT_VERSION` stamp), creates
-`.sdd/project-profile.md` from the template and an empty
-`.sdd/project-skills/` home for repository-owned skills, and renders the
-agent discovery files:
+`.sdd/project-profile.md` from the template, `.sdd/agents.conf` listing the
+agents to render, and an empty `.sdd/project-skills/` home for
+repository-owned skills, then renders the agent discovery files:
 
-| Agent | Instructions | Skills |
-|---|---|---|
-| Claude Code | `CLAUDE.md` | `.claude/skills/` |
-| Codex | `AGENTS.md` | `.codex/skills/` |
-| GitHub Copilot | `.github/copilot-instructions.md` | `.github/skills/` |
+| Agent | `agents.conf` name | Instructions | Skills |
+|---|---|---|---|
+| Claude Code | `claude` | `CLAUDE.md` | `.claude/skills/` |
+| Codex | `codex` | `AGENTS.md` | `.codex/skills/` |
+| GitHub Copilot | `copilot` | `.github/copilot-instructions.md` | `.github/skills/` |
 
 Then:
 
 1. Complete `.sdd/project-profile.md` — or run the `bootstrap-specs` skill,
    which establishes missing authority documents from the templates and fills
    the profile with you.
-2. Optionally copy `.sdd/guardrails/*.yml` to `.github/workflows/` and adapt
+2. Trim `.sdd/agents.conf` to the agents you actually use, then run
+   `./.sdd/scripts/sdd.sh sync`.
+3. Optionally copy `.sdd/guardrails/*.yml` to `.github/workflows/` and adapt
    their path configuration.
-3. Commit `.sdd/` together with the rendered agent files.
-4. Test the workflow with one small mechanical change and one behavior change.
+4. Commit `.sdd/` together with the rendered agent files.
+5. Test the workflow with one small mechanical change and one behavior change.
 
 If the repository already has independently owned agent instruction files
 (`CLAUDE.md`, `AGENTS.md`, skills), reconcile them first — repository-specific
 rules move into `.sdd/project-profile.md` and repository-specific skills into
 `.sdd/project-skills/` — then remove the old files; the script refuses to
 overwrite files that do not carry its generated-file marker.
+
+## Choosing Agents
+
+`.sdd/agents.conf` lists the agents `sync` renders for, one name per line;
+`#` starts a comment. It is repository-owned — `sdd.sh update` never rewrites
+it, and a repository adopted before the file existed behaves as if all agents
+were listed.
+
+Dropping an agent from the list is the supported way to stop maintaining its
+files: the next `sync` removes the instructions, skills, and supporting files
+it generated for that agent, and `check` reports any that come back as drift.
+Only files carrying the generated-file marker are removed, so a hand-owned
+`AGENTS.md` at the same path is left alone.
 
 ## Project-Local Skills
 
@@ -112,7 +127,8 @@ unmanaged file is refused, same as for rendered instruction files.
 - To pull a new kit release into an adopted repository, run
   `/path/to/spec-driven-development-kit/scripts/sdd.sh update /path/to/your-repo`
   from a checkout of the desired kit tag. Kit-owned files are refreshed;
-  `.sdd/project-profile.md` and `.sdd/project-skills/` are preserved. Review
+  `.sdd/project-profile.md`, `.sdd/agents.conf`, and `.sdd/project-skills/`
+  are preserved. Review
   the diff — local edits to kit-owned files under `.sdd/` are overwritten by
   design.
 

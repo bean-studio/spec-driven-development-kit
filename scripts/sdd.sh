@@ -12,12 +12,16 @@ Commands run from a kit checkout:
                    .sdd/project-profile.md from the template, and render
                    agent files. Refuses if <target>/.sdd already exists.
   update [target]  Refresh kit-owned files under <target>/.sdd (preserving
-                   .sdd/project-profile.md), then re-render agent files.
+                   .sdd/project-profile.md and .sdd/agents.conf), then
+                   re-render agent files.
 
 Commands run from a kit checkout with [target], or from <repo>/.sdd/scripts:
   sync [target]    Render agent instruction and skill files from
                    .sdd/agent-source/.
   check [target]   Verify rendered agent files are current; exit 1 on drift.
+
+Which agents are rendered is listed in <repo>/.sdd/agents.conf; sync removes
+the generated files of an agent dropped from that list.
 EOF
   exit 2
 }
@@ -53,6 +57,78 @@ is_managed() {
   grep -Fqx "$notice" "$1" || grep -Fqx "$legacy_notice" "$1"
 }
 placeholder='{{GENERATED_NOTICE}}'
+
+known_agents='claude codex copilot'
+
+agent_manual() {
+  case $1 in
+    claude) echo "CLAUDE.md" ;;
+    codex) echo "AGENTS.md" ;;
+    copilot) echo ".github/copilot-instructions.md" ;;
+  esac
+}
+
+agent_skills_root() {
+  case $1 in
+    claude) echo ".claude/skills" ;;
+    codex) echo ".codex/skills" ;;
+    copilot) echo ".github/skills" ;;
+  esac
+}
+
+# The agent list is repository-owned configuration. A missing file means every
+# known agent, so repositories adopted before agents.conf existed keep working.
+read_enabled_agents() {
+  agents_conf="$sdd_dir/agents.conf"
+  if [ ! -f "$agents_conf" ]; then
+    enabled_agents=$known_agents
+    return
+  fi
+  enabled_agents=
+  while IFS= read -r line || [ -n "$line" ]; do
+    line=${line%%#*}
+    line=$(printf '%s' "$line" | tr -d '[:space:]')
+    [ -n "$line" ] || continue
+    case " $known_agents " in
+      *" $line "*) ;;
+      *)
+        echo "sdd: unknown agent '$line' in .sdd/agents.conf; known agents: $known_agents" >&2
+        exit 1
+        ;;
+    esac
+    case " $enabled_agents " in
+      *" $line "*) continue ;;
+    esac
+    enabled_agents="$enabled_agents $line"
+  done < "$agents_conf"
+  if [ -z "$enabled_agents" ]; then
+    echo "sdd: warning: .sdd/agents.conf enables no agents; no discovery files will be rendered" >&2
+  fi
+}
+
+agent_enabled() {
+  case " $enabled_agents " in
+    *" $1 "*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+write_default_agents_conf() {
+  [ -f "$sdd_dir/agents.conf" ] && return 0
+  cat > "$sdd_dir/agents.conf" <<'EOF'
+# Agents that sdd.sh renders discovery files for. Comment out or delete a line
+# to stop rendering for that agent; the next sync removes the files it
+# generated. This file is repository-owned — sdd.sh update never changes it.
+#
+#   claude   -> CLAUDE.md, .claude/skills/
+#   codex    -> AGENTS.md, .codex/skills/
+#   copilot  -> .github/copilot-instructions.md, .github/skills/
+
+claude
+codex
+copilot
+EOF
+}
 
 is_kit_checkout() {
   [ -f "$kit_root/project-profile.template.md" ] && [ -d "$kit_root/agent-source" ]
@@ -223,6 +299,42 @@ sync_support_file() {
   echo "synced: $relative_destination"
 }
 
+# An agent absent from .sdd/agents.conf keeps none of its generated files.
+# Only files carrying the generated marker are touched, so a hand-owned file at
+# the same path survives.
+remove_agent() {
+  manual_path=$1
+  skills_root=$2
+
+  destination_manual="$repo_root/$manual_path"
+  if [ -f "$destination_manual" ] && is_managed "$destination_manual"; then
+    if [ "$mode" = "check" ]; then
+      echo "sdd: unexpected generated file $manual_path (agent not enabled in .sdd/agents.conf)" >&2
+      drift=1
+    else
+      rm "$destination_manual"
+      echo "removed: $manual_path"
+    fi
+  fi
+
+  destination_root="$repo_root/$skills_root"
+  [ -d "$destination_root" ] || return 0
+  disabled_list="$temp_root/disabled-skills.list"
+  find "$destination_root" -name SKILL.md -type f | sort > "$disabled_list"
+  while IFS= read -r destination_skill; do
+    is_managed "$destination_skill" || continue
+    relative_skill=${destination_skill#"$repo_root"/}
+    if [ "$mode" = "check" ]; then
+      echo "sdd: unexpected generated skill $relative_skill (agent not enabled in .sdd/agents.conf)" >&2
+      drift=1
+    else
+      rm "$destination_skill"
+      (cd "$repo_root" && rmdir -p "$(dirname "$relative_skill")" 2>/dev/null) || true
+      echo "removed: $relative_skill"
+    fi
+  done < "$disabled_list"
+}
+
 sync_agent() {
   manual_path=$1
   skills_root=$2
@@ -258,6 +370,7 @@ sync_agent() {
         drift=1
       else
         rm "$destination_skill"
+        (cd "$repo_root" && rmdir -p "$(dirname "$skills_root/$relative_skill")" 2>/dev/null) || true
         echo "removed: $skills_root/$relative_skill"
       fi
     done < "$destination_list"
@@ -289,10 +402,15 @@ run_sync() {
   fi
   : > "$new_support_manifest"
 
+  read_enabled_agents
   collect_expected_skills
-  sync_agent "CLAUDE.md" ".claude/skills"
-  sync_agent "AGENTS.md" ".codex/skills"
-  sync_agent ".github/copilot-instructions.md" ".github/skills"
+  for agent in $known_agents; do
+    if agent_enabled "$agent"; then
+      sync_agent "$(agent_manual "$agent")" "$(agent_skills_root "$agent")"
+    else
+      remove_agent "$(agent_manual "$agent")" "$(agent_skills_root "$agent")"
+    fi
+  done
 
   sort -u -o "$new_support_manifest" "$new_support_manifest"
   reconcile_support_manifest
@@ -361,6 +479,7 @@ case "$command" in
     init_cleanup_dir="$sdd_dir"
     copy_kit_owned_files
     cp "$kit_root/project-profile.template.md" "$sdd_dir/project-profile.md"
+    write_default_agents_conf
     mkdir -p "$sdd_dir/project-skills"
     cat > "$sdd_dir/project-skills/README.md" <<'EOF'
 Project-local skills. This directory is owned by the repository; `sdd.sh
@@ -400,9 +519,10 @@ EOF
       exit 1
     fi
     copy_kit_owned_files
+    write_default_agents_conf
     mode=write
     run_sync
-    echo "sdd: updated kit-owned files in $sdd_dir to version $(cat "$kit_root/VERSION"); .sdd/project-profile.md was preserved"
+    echo "sdd: updated kit-owned files in $sdd_dir to version $(cat "$kit_root/VERSION"); .sdd/project-profile.md and .sdd/agents.conf were preserved"
     ;;
   sync)
     resolve_repo_root
