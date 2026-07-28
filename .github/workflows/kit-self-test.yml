@@ -1,0 +1,173 @@
+name: Kit self-test
+
+# Verifies sdd.sh scaffolds a repository correctly from this checkout. This is
+# the kit's own CI, not a guardrail for adopters — see guardrails/ for those.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  scaffold:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out kit
+        uses: actions/checkout@v4
+
+      - name: Initialize a throwaway target repository
+        run: |
+          mkdir -p "$RUNNER_TEMP/target"
+          ./scripts/sdd.sh init "$RUNNER_TEMP/target"
+
+      - name: Verify rendered files are current
+        run: ./.sdd/scripts/sdd.sh check
+        working-directory: ${{ runner.temp }}/target
+
+      - name: Verify the vendored kit version matches VERSION
+        run: |
+          expected=$(cat VERSION)
+          actual=$(cat "$RUNNER_TEMP/target/.sdd/KIT_VERSION")
+          if [ "$expected" != "$actual" ]; then
+            echo "KIT_VERSION $actual does not match VERSION $expected" >&2
+            exit 1
+          fi
+
+      - name: Verify check detects drift
+        run: |
+          echo "drift" >> "$RUNNER_TEMP/target/CLAUDE.md"
+          if "$RUNNER_TEMP/target/.sdd/scripts/sdd.sh" check; then
+            echo "check passed on a drifted tree; it should have failed" >&2
+            exit 1
+          fi
+
+      - name: Verify sync repairs drift
+        run: |
+          "$RUNNER_TEMP/target/.sdd/scripts/sdd.sh" sync
+          "$RUNNER_TEMP/target/.sdd/scripts/sdd.sh" check
+
+      - name: Verify init refuses to overwrite an existing .sdd
+        run: |
+          if ./scripts/sdd.sh init "$RUNNER_TEMP/target"; then
+            echo "init overwrote an existing .sdd; it should have refused" >&2
+            exit 1
+          fi
+
+      - name: Verify update preserves the project profile
+        run: |
+          marker="project-local marker line"
+          echo "$marker" >> "$RUNNER_TEMP/target/.sdd/project-profile.md"
+          ./scripts/sdd.sh update "$RUNNER_TEMP/target"
+          if ! grep -Fqx "$marker" "$RUNNER_TEMP/target/.sdd/project-profile.md"; then
+            echo "update clobbered .sdd/project-profile.md" >&2
+            exit 1
+          fi
+          "$RUNNER_TEMP/target/.sdd/scripts/sdd.sh" check
+
+      - name: Verify project-local skills render and survive update
+        run: |
+          target="$RUNNER_TEMP/target"
+          mkdir -p "$target/.sdd/project-skills/demo-skill"
+          printf -- '---\nname: demo-skill\ndescription: Demo project-local skill.\n---\n{{GENERATED_NOTICE}}\n\n# Demo Skill\n' \
+            > "$target/.sdd/project-skills/demo-skill/SKILL.md"
+          "$target/.sdd/scripts/sdd.sh" sync
+          for f in .claude/skills/demo-skill/SKILL.md .codex/skills/demo-skill/SKILL.md .github/skills/demo-skill/SKILL.md; do
+            if [ ! -f "$target/$f" ]; then
+              echo "project skill was not rendered to $f" >&2
+              exit 1
+            fi
+          done
+          ./scripts/sdd.sh update "$target"
+          if [ ! -f "$target/.sdd/project-skills/demo-skill/SKILL.md" ]; then
+            echo "update removed a project-local skill" >&2
+            exit 1
+          fi
+          "$target/.sdd/scripts/sdd.sh" check
+
+      - name: Verify removing a project skill removes its rendered copies
+        run: |
+          target="$RUNNER_TEMP/target"
+          rm -r "$target/.sdd/project-skills/demo-skill"
+          "$target/.sdd/scripts/sdd.sh" sync
+          if [ -f "$target/.claude/skills/demo-skill/SKILL.md" ]; then
+            echo "sync left a rendered copy of a deleted project skill" >&2
+            exit 1
+          fi
+          "$target/.sdd/scripts/sdd.sh" check
+
+      - name: Verify a kit-skill name collision fails sync
+        run: |
+          target="$RUNNER_TEMP/target"
+          mkdir -p "$target/.sdd/project-skills/spec-first-change"
+          printf -- '---\nname: spec-first-change\ndescription: Colliding skill.\n---\n{{GENERATED_NOTICE}}\n' \
+            > "$target/.sdd/project-skills/spec-first-change/SKILL.md"
+          if "$target/.sdd/scripts/sdd.sh" sync; then
+            echo "sync accepted a project skill that shadows a kit skill" >&2
+            exit 1
+          fi
+          rm -r "$target/.sdd/project-skills/spec-first-change"
+          "$target/.sdd/scripts/sdd.sh" check
+
+      - name: Verify supporting files render with a manifest
+        run: |
+          target="$RUNNER_TEMP/target"
+          mkdir -p "$target/.sdd/project-skills/support-skill/agents"
+          printf -- '---\nname: support-skill\ndescription: Skill with supporting files.\n---\n{{GENERATED_NOTICE}}\n\n# Support Skill\n' \
+            > "$target/.sdd/project-skills/support-skill/SKILL.md"
+          printf 'interface:\n  display_name: "Support Skill"\n' \
+            > "$target/.sdd/project-skills/support-skill/agents/openai.yaml"
+          "$target/.sdd/scripts/sdd.sh" sync
+          for root in .claude/skills .codex/skills .github/skills; do
+            if [ ! -f "$target/$root/support-skill/agents/openai.yaml" ]; then
+              echo "supporting file was not rendered to $root" >&2
+              exit 1
+            fi
+            if ! grep -Fqx "$root/support-skill/agents/openai.yaml" "$target/.sdd/rendered-support.list"; then
+              echo "manifest is missing $root/support-skill/agents/openai.yaml" >&2
+              exit 1
+            fi
+          done
+          "$target/.sdd/scripts/sdd.sh" check
+
+      - name: Verify supporting files survive update and refuse unmanaged conflicts
+        run: |
+          target="$RUNNER_TEMP/target"
+          ./scripts/sdd.sh update "$target"
+          if [ ! -f "$target/.sdd/project-skills/support-skill/agents/openai.yaml" ]; then
+            echo "update removed a project skill's supporting file" >&2
+            exit 1
+          fi
+          "$target/.sdd/scripts/sdd.sh" check
+          echo "hand edit" >> "$target/.claude/skills/support-skill/agents/openai.yaml"
+          sed -i '/support-skill\/agents\/openai.yaml/{/\.claude/d;}' "$target/.sdd/rendered-support.list"
+          if "$target/.sdd/scripts/sdd.sh" sync; then
+            echo "sync overwrote a differing unmanaged supporting file" >&2
+            exit 1
+          fi
+          cp "$target/.sdd/project-skills/support-skill/agents/openai.yaml" \
+            "$target/.claude/skills/support-skill/agents/openai.yaml"
+          "$target/.sdd/scripts/sdd.sh" sync
+          if ! grep -Fqx ".claude/skills/support-skill/agents/openai.yaml" "$target/.sdd/rendered-support.list"; then
+            echo "sync did not adopt an identical hand-placed supporting file" >&2
+            exit 1
+          fi
+          "$target/.sdd/scripts/sdd.sh" check
+
+      - name: Verify removing the skill removes supporting files and the manifest
+        run: |
+          target="$RUNNER_TEMP/target"
+          rm -r "$target/.sdd/project-skills/support-skill"
+          "$target/.sdd/scripts/sdd.sh" sync
+          if [ -e "$target/.claude/skills/support-skill" ]; then
+            echo "sync left rendered files for a deleted skill" >&2
+            exit 1
+          fi
+          if [ -f "$target/.sdd/rendered-support.list" ]; then
+            echo "sync left an empty rendered-support manifest" >&2
+            exit 1
+          fi
+          "$target/.sdd/scripts/sdd.sh" check

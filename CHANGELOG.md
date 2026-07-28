@@ -7,14 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] — 2026-07-28
+
+### Changed
+
+- **Replaced Qoder-native plugin packaging with a portable, agent-agnostic
+  vendoring model.** The `plugins/` and `skills/` directories are gone;
+  distribution now runs through `scripts/sdd.sh` (`init | update | sync |
+  check`), which vendors this kit into an adopting repository under `.sdd/`
+  and renders discovery files for Claude Code (`CLAUDE.md`,
+  `.claude/skills/`), Codex (`AGENTS.md`, `.codex/skills/`), and GitHub
+  Copilot (`.github/copilot-instructions.md`, `.github/skills/`) from one
+  canonical source.
+- Grew from three skills to six, splitting `jira-ticket-work` into
+  `refine-ticket`, `implement-ticket`, and `manage-ticket`, and adding
+  `bootstrap-specs` for one-time authority-document setup. `spec-first-change`
+  and `submit-pr` carry forward as the development-engine and delivery
+  skills.
+- The issue tracker (e.g. Jira) is no longer baked into a skill; it is
+  repository configuration declared in `.sdd/project-profile.md`.
+
 ### Added
 
-- **Qoder-native plugins** — Each skill is now packaged as a standalone Qoder plugin under `plugins/`:
-  - `plugins/spec-first-change/` — standalone plugin with `.qoder-plugin/plugin.json`
-  - `plugins/submit-pr/` — standalone plugin with `.qoder-plugin/plugin.json`
-  - `plugins/jira-ticket-work/` — standalone plugin with `CONNECTORS.md` documenting Atlassian MCP server dependency
-- Plugins can be installed independently via `qodercli plugin install --scope local`
-- README updated with plugin-based installation instructions (Option A) alongside manual installation (Option B)
+- `POLICY.md`: shared engineering policy covering authority, change
+  classification, decisions-before-code, workflow boundaries, approval
+  gates, Git safety, verification, releases, and pull-request guardrails.
+- `project-profile.template.md`: per-repository authorities, paths,
+  issue-tracking, Git/PR, release, and verification configuration, kept
+  separate from the shared policy.
+- `agent-source/instructions.md`: canonical agent routing manual, rendered
+  per agent by `sdd.sh sync`.
+- `templates/`: authority-document skeletons (product spec, architecture
+  record, roadmap, feature brief) and inter-stage records (implementation
+  ready, lifecycle evidence, changelog entry, pull-request template,
+  releases).
+- `guardrails/`: optional GitHub Actions backstops — generated-file drift
+  check (`agent-sync-check.yml`) and a decisions-move-with-code path check
+  (`spec-decision-check.yml`).
+- Project-local skills: repositories can own skills under
+  `.sdd/project-skills/<skill-name>/SKILL.md`, rendered alongside kit
+  skills and preserved across `sdd.sh update`.
+- `VERSION` identifies the kit release vendored into adopting repositories.
 
 ## [0.0.1] — 2026-07-21
 
@@ -32,3 +65,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `spec-first-change` and `submit-pr` skills.
 - `README.md` with kit overview, skill descriptions, and getting started guide.
 - `LICENSE` (MIT) to clarify usage terms.
+
