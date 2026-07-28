@@ -1,0 +1,420 @@
+#!/bin/sh
+# spec-driven-development-kit: scaffold the kit into a repository and keep rendered
+# agent discovery files (Claude Code, Codex, GitHub Copilot) in sync.
+set -eu
+
+usage() {
+  cat >&2 <<'EOF'
+Usage: sdd.sh <command> [target-repo]
+
+Commands run from a kit checkout:
+  init [target]    Vendor the kit into <target>/.sdd, create
+                   .sdd/project-profile.md from the template, and render
+                   agent files. Refuses if <target>/.sdd already exists.
+  update [target]  Refresh kit-owned files under <target>/.sdd (preserving
+                   .sdd/project-profile.md), then re-render agent files.
+
+Commands run from a kit checkout with [target], or from <repo>/.sdd/scripts:
+  sync [target]    Render agent instruction and skill files from
+                   .sdd/agent-source/.
+  check [target]   Verify rendered agent files are current; exit 1 on drift.
+EOF
+  exit 2
+}
+
+[ "$#" -ge 1 ] || usage
+command=$1
+shift
+target=${1:-}
+[ "$#" -le 1 ] || { shift; usage; }
+
+script_dir=$(cd "$(dirname "$0")" && pwd)
+kit_root=$(cd "$script_dir/.." && pwd)
+
+temp_root=
+init_cleanup_dir=
+on_exit() {
+  rc=$?
+  if [ -n "$temp_root" ]; then
+    rm -rf "$temp_root"
+  fi
+  if [ "$rc" -ne 0 ] && [ -n "$init_cleanup_dir" ]; then
+    rm -rf "$init_cleanup_dir"
+    echo "sdd: init failed; removed partial $init_cleanup_dir" >&2
+  fi
+}
+trap on_exit EXIT
+trap 'exit 130' HUP INT TERM
+notice='<!-- GENERATED FILE. Edit the canonical source under .sdd/ (agent-source/ or project-skills/) and run ./.sdd/scripts/sdd.sh sync. -->'
+# Notice written by kit 0.1.0; still recognized as managed so update works.
+legacy_notice='<!-- GENERATED FILE. Edit .sdd/agent-source/ and run ./.sdd/scripts/sdd.sh sync. -->'
+
+is_managed() {
+  grep -Fqx "$notice" "$1" || grep -Fqx "$legacy_notice" "$1"
+}
+placeholder='{{GENERATED_NOTICE}}'
+
+is_kit_checkout() {
+  [ -f "$kit_root/project-profile.template.md" ] && [ -d "$kit_root/agent-source" ]
+}
+
+is_vendored() {
+  [ ! -f "$kit_root/project-profile.template.md" ] && [ -d "$kit_root/agent-source" ]
+}
+
+require_kit_checkout() {
+  if ! is_kit_checkout; then
+    echo "sdd: '$command' must run from a kit checkout, not a vendored .sdd copy" >&2
+    exit 1
+  fi
+}
+
+resolve_repo_root() {
+  if [ -n "$target" ]; then
+    repo_root=$(cd "$target" && pwd)
+  elif [ "$command" = "init" ] || [ "$command" = "update" ]; then
+    repo_root=$(pwd)
+  elif is_vendored; then
+    repo_root=$(cd "$kit_root/.." && pwd)
+  else
+    echo "sdd: '$command' needs a target repository when run from a kit checkout" >&2
+    exit 1
+  fi
+  case "$repo_root/" in
+    "$kit_root"/*)
+      echo "sdd: target $repo_root is inside the kit checkout; pass an explicit target repository" >&2
+      exit 1
+      ;;
+  esac
+  sdd_dir="$repo_root/.sdd"
+}
+
+copy_kit_owned_files() {
+  mkdir -p "$sdd_dir/scripts"
+  rm -rf "$sdd_dir/agent-source" "$sdd_dir/templates" "$sdd_dir/guardrails"
+  cp "$kit_root/POLICY.md" "$sdd_dir/POLICY.md"
+  cp -R "$kit_root/agent-source" "$sdd_dir/agent-source"
+  cp -R "$kit_root/templates" "$sdd_dir/templates"
+  cp -R "$kit_root/guardrails" "$sdd_dir/guardrails"
+  cp "$kit_root/scripts/sdd.sh" "$sdd_dir/scripts/sdd.sh"
+  chmod +x "$sdd_dir/scripts/sdd.sh"
+  cp "$kit_root/VERSION" "$sdd_dir/KIT_VERSION"
+}
+
+render() {
+  source_file=$1
+  output_file=$2
+  if ! grep -Fq "$placeholder" "$source_file"; then
+    echo "sdd: canonical source is missing the $placeholder placeholder: $source_file" >&2
+    exit 1
+  fi
+  sed -e "s#$placeholder#$notice#g" "$source_file" > "$output_file"
+}
+
+sync_file() {
+  expected=$1
+  destination=$2
+  relative_destination=${destination#"$repo_root"/}
+
+  if [ -f "$destination" ] && cmp -s "$expected" "$destination"; then
+    return
+  fi
+
+  if [ -f "$destination" ] && ! is_managed "$destination"; then
+    if [ "$mode" = "check" ]; then
+      echo "sdd: unmanaged file conflicts with generated output $relative_destination" >&2
+      drift=1
+      return
+    fi
+    echo "sdd: refusing to overwrite unmanaged file $relative_destination; reconcile it into .sdd/agent-source/ or remove it first" >&2
+    exit 1
+  fi
+
+  if [ "$mode" = "check" ]; then
+    echo "sdd: stale or missing $relative_destination" >&2
+    drift=1
+    return
+  fi
+
+  mkdir -p "$(dirname "$destination")"
+  cp "$expected" "$destination"
+  echo "synced: $relative_destination"
+}
+
+# Render kit skills and project-local skills (.sdd/project-skills/) into one
+# expected set. A project skill may not reuse a kit skill's path. Supporting
+# files (anything inside a skill directory besides SKILL.md) are copied
+# verbatim and tracked in the rendered-support manifest, since arbitrary or
+# binary formats cannot carry the generated-file notice.
+collect_expected_skills() {
+  expected_skills_root="$temp_root/expected-skills"
+  expected_skills_list="$temp_root/expected-skills.list"
+  expected_support_list="$temp_root/expected-support.list"
+  mkdir -p "$expected_skills_root"
+  : > "$expected_skills_list"
+  : > "$expected_support_list"
+
+  for skills_source in "$source_skills" "$sdd_dir/project-skills"; do
+    if [ ! -d "$skills_source" ]; then
+      continue
+    fi
+    source_list="$temp_root/source-skills.list"
+    find "$skills_source" -name SKILL.md -type f | sort > "$source_list"
+    while IFS= read -r source_skill; do
+      relative_skill=${source_skill#"$skills_source"/}
+      if [ -f "$expected_skills_root/$relative_skill" ]; then
+        echo "sdd: skill '$relative_skill' exists in both .sdd/agent-source/skills/ and .sdd/project-skills/; rename the project skill" >&2
+        exit 1
+      fi
+      mkdir -p "$(dirname "$expected_skills_root/$relative_skill")"
+      render "$source_skill" "$expected_skills_root/$relative_skill"
+      printf '%s\n' "$relative_skill" >> "$expected_skills_list"
+    done < "$source_list"
+
+    support_list="$temp_root/source-support.list"
+    find "$skills_source" -mindepth 2 -type f ! -name SKILL.md | sort > "$support_list"
+    while IFS= read -r source_support; do
+      relative_support=${source_support#"$skills_source"/}
+      if [ -f "$expected_skills_root/$relative_support" ]; then
+        echo "sdd: supporting file '$relative_support' exists in both .sdd/agent-source/skills/ and .sdd/project-skills/; rename the project skill" >&2
+        exit 1
+      fi
+      mkdir -p "$(dirname "$expected_skills_root/$relative_support")"
+      cp "$source_support" "$expected_skills_root/$relative_support"
+      printf '%s\n' "$relative_support" >> "$expected_support_list"
+    done < "$support_list"
+  done
+  sort -o "$expected_skills_list" "$expected_skills_list"
+  sort -o "$expected_support_list" "$expected_support_list"
+}
+
+# Supporting files carry no notice, so managed-ness comes from the manifest:
+# a destination is safe to overwrite or remove only if the manifest (or an
+# identical content match, which adopts a hand-placed copy) says we wrote it.
+sync_support_file() {
+  expected=$1
+  destination=$2
+  relative_destination=${destination#"$repo_root"/}
+
+  printf '%s\n' "$relative_destination" >> "$new_support_manifest"
+
+  if [ -f "$destination" ] && cmp -s "$expected" "$destination"; then
+    return
+  fi
+
+  if [ -f "$destination" ] && ! grep -Fqx "$relative_destination" "$old_support_manifest"; then
+    if [ "$mode" = "check" ]; then
+      echo "sdd: unmanaged file conflicts with generated supporting file $relative_destination" >&2
+      drift=1
+      return
+    fi
+    echo "sdd: refusing to overwrite unmanaged supporting file $relative_destination; reconcile it into its skill's source directory or remove it first" >&2
+    exit 1
+  fi
+
+  if [ "$mode" = "check" ]; then
+    echo "sdd: stale or missing $relative_destination" >&2
+    drift=1
+    return
+  fi
+
+  mkdir -p "$(dirname "$destination")"
+  cp "$expected" "$destination"
+  echo "synced: $relative_destination"
+}
+
+sync_agent() {
+  manual_path=$1
+  skills_root=$2
+
+  expected_manual="$temp_root/$manual_path"
+  mkdir -p "$(dirname "$expected_manual")"
+  render "$source_manual" "$expected_manual"
+  sync_file "$expected_manual" "$repo_root/$manual_path"
+
+  while IFS= read -r relative_skill; do
+    sync_file "$expected_skills_root/$relative_skill" "$repo_root/$skills_root/$relative_skill"
+  done < "$expected_skills_list"
+
+  while IFS= read -r relative_support; do
+    sync_support_file "$expected_skills_root/$relative_support" "$repo_root/$skills_root/$relative_support"
+  done < "$expected_support_list"
+
+  destination_root="$repo_root/$skills_root"
+  if [ -d "$destination_root" ]; then
+    destination_list="$temp_root/destination-skills.list"
+    find "$destination_root" -name SKILL.md -type f | sort > "$destination_list"
+    while IFS= read -r destination_skill; do
+      relative_skill=${destination_skill#"$destination_root"/}
+      if [ -f "$expected_skills_root/$relative_skill" ]; then
+        continue
+      fi
+      if ! is_managed "$destination_skill"; then
+        continue
+      fi
+
+      if [ "$mode" = "check" ]; then
+        echo "sdd: unexpected generated skill $skills_root/$relative_skill" >&2
+        drift=1
+      else
+        rm "$destination_skill"
+        echo "removed: $skills_root/$relative_skill"
+      fi
+    done < "$destination_list"
+  fi
+}
+
+run_sync() {
+  source_manual="$sdd_dir/agent-source/instructions.md"
+  source_skills="$sdd_dir/agent-source/skills"
+
+  if [ ! -f "$source_manual" ] || [ ! -d "$source_skills" ]; then
+    echo "sdd: missing canonical sources under $sdd_dir/agent-source; run init first" >&2
+    exit 1
+  fi
+  if [ ! -f "$sdd_dir/project-profile.md" ]; then
+    echo "sdd: warning: $sdd_dir/project-profile.md is missing; complete it before relying on the workflow" >&2
+  fi
+
+  temp_root=$(mktemp -d "${TMPDIR:-/tmp}/sdd-sync.XXXXXX")
+  drift=0
+
+  support_manifest="$sdd_dir/rendered-support.list"
+  old_support_manifest="$temp_root/old-support-manifest.list"
+  new_support_manifest="$temp_root/new-support-manifest.list"
+  if [ -f "$support_manifest" ]; then
+    cp "$support_manifest" "$old_support_manifest"
+  else
+    : > "$old_support_manifest"
+  fi
+  : > "$new_support_manifest"
+
+  collect_expected_skills
+  sync_agent "CLAUDE.md" ".claude/skills"
+  sync_agent "AGENTS.md" ".codex/skills"
+  sync_agent ".github/copilot-instructions.md" ".github/skills"
+
+  sort -u -o "$new_support_manifest" "$new_support_manifest"
+  reconcile_support_manifest
+
+  if [ "$mode" = "check" ]; then
+    if [ "$drift" -ne 0 ]; then
+      echo "sdd: generated files are out of date; run ./.sdd/scripts/sdd.sh sync" >&2
+      exit 1
+    fi
+    echo "sdd: generated files are up to date"
+  fi
+}
+
+# Remove previously rendered supporting files that are no longer expected,
+# then bring .sdd/rendered-support.list in line with what was rendered.
+reconcile_support_manifest() {
+  while IFS= read -r stale_path; do
+    [ -n "$stale_path" ] || continue
+    if grep -Fqx "$stale_path" "$new_support_manifest"; then
+      continue
+    fi
+    if [ ! -f "$repo_root/$stale_path" ]; then
+      continue
+    fi
+    if [ "$mode" = "check" ]; then
+      echo "sdd: unexpected generated supporting file $stale_path" >&2
+      drift=1
+    else
+      rm "$repo_root/$stale_path"
+      (cd "$repo_root" && rmdir -p "$(dirname "$stale_path")" 2>/dev/null) || true
+      echo "removed: $stale_path"
+    fi
+  done < "$old_support_manifest"
+
+  manifest_relative=${support_manifest#"$repo_root"/}
+  if [ -s "$new_support_manifest" ]; then
+    if ! cmp -s "$new_support_manifest" "$old_support_manifest"; then
+      if [ "$mode" = "check" ]; then
+        echo "sdd: stale or missing $manifest_relative" >&2
+        drift=1
+      else
+        cp "$new_support_manifest" "$support_manifest"
+        echo "synced: $manifest_relative"
+      fi
+    fi
+  elif [ -f "$support_manifest" ]; then
+    if [ "$mode" = "check" ]; then
+      echo "sdd: unexpected $manifest_relative (no supporting files are expected)" >&2
+      drift=1
+    else
+      rm "$support_manifest"
+      echo "removed: $manifest_relative"
+    fi
+  fi
+}
+
+case "$command" in
+  init)
+    require_kit_checkout
+    resolve_repo_root
+    if [ -d "$sdd_dir" ]; then
+      echo "sdd: $sdd_dir already exists; use 'update' to refresh kit-owned files" >&2
+      exit 1
+    fi
+    mkdir -p "$sdd_dir"
+    init_cleanup_dir="$sdd_dir"
+    copy_kit_owned_files
+    cp "$kit_root/project-profile.template.md" "$sdd_dir/project-profile.md"
+    mkdir -p "$sdd_dir/project-skills"
+    cat > "$sdd_dir/project-skills/README.md" <<'EOF'
+Project-local skills. This directory is owned by the repository; `sdd.sh
+update` never modifies it.
+
+Each skill lives at `<skill-name>/SKILL.md` with YAML frontmatter followed by
+a `{{GENERATED_NOTICE}}` placeholder line, exactly like the kit skills under
+`../agent-source/skills/`. `sdd.sh sync` renders these skills to every
+configured agent alongside the kit skills. A project skill may not reuse a
+kit skill's name.
+
+Any other file inside a skill directory (references, scripts, agent-specific
+metadata such as `agents/openai.yaml`) is copied verbatim to every agent's
+skills tree and tracked in `.sdd/rendered-support.list`; agents ignore
+metadata files that are not theirs. Commit that manifest with the rendered
+files.
+EOF
+    mode=write
+    run_sync
+    init_cleanup_dir=
+    cat <<EOF
+sdd: initialized $sdd_dir (kit version $(cat "$kit_root/VERSION"))
+
+Next steps:
+  1. Complete .sdd/project-profile.md (or run the bootstrap-specs skill to
+     establish missing authority documents and fill the profile).
+  2. Optionally copy .sdd/guardrails/*.yml to .github/workflows/ and adapt
+     their path configuration.
+  3. Commit .sdd/ together with the rendered agent files.
+EOF
+    ;;
+  update)
+    require_kit_checkout
+    resolve_repo_root
+    if [ ! -d "$sdd_dir" ]; then
+      echo "sdd: $sdd_dir does not exist; use 'init' first" >&2
+      exit 1
+    fi
+    copy_kit_owned_files
+    mode=write
+    run_sync
+    echo "sdd: updated kit-owned files in $sdd_dir to version $(cat "$kit_root/VERSION"); .sdd/project-profile.md was preserved"
+    ;;
+  sync)
+    resolve_repo_root
+    mode=write
+    run_sync
+    ;;
+  check)
+    resolve_repo_root
+    mode=check
+    run_sync
+    ;;
+  *)
+    usage
+    ;;
+esac

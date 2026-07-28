@@ -1,0 +1,21 @@
+name: Agent customization sync check
+
+# Copy to .github/workflows/ in a repository initialized with sdd.sh init.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  generated-files-current:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify generated agent customizations
+        run: ./.sdd/scripts/sdd.sh check

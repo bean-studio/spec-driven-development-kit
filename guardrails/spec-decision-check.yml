@@ -1,0 +1,52 @@
+name: Spec decision check
+
+# Copy to .github/workflows/ and configure the path lists below. This is a blunt
+# backstop: path presence cannot prove that a decision is correct.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  spec-moves-with-code:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check decision evidence
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Adapt these values to .sdd/project-profile.md before enabling.
+            const implementationPrefixes = ['src/'];
+            const decisionPrefixes = ['specs/'];
+            const decisionFiles = ['ARCHITECTURE.md'];
+            const noDecisionEditLabel = 'no-decision-edit';
+
+            const labels = (context.payload.pull_request.labels || []).map(label => label.name);
+            if (labels.includes(noDecisionEditLabel)) {
+              core.info(`Skipped path check: PR carries "${noDecisionEditLabel}". Review must confirm either cited explicit-spec drift or a mechanical/tooling rationale.`);
+              return;
+            }
+
+            const files = await github.paginate(
+              github.rest.pulls.listFiles,
+              { ...context.repo, pull_number: context.payload.pull_request.number, per_page: 100 }
+            );
+            const names = files.map(file => file.filename);
+            const isImplementation = name => implementationPrefixes.some(prefix => name.startsWith(prefix));
+            const isDecision = name => decisionPrefixes.some(prefix => name.startsWith(prefix)) || decisionFiles.includes(name);
+            const implementationFiles = names.filter(isImplementation);
+            const changedDecisionFiles = names.filter(isDecision);
+
+            if (implementationFiles.length > 0 && changedDecisionFiles.length === 0) {
+              core.setFailed(
+                'Implementation changed without a decision-file change. Record the material decision in its owning file, or apply ' +
+                `"${noDecisionEditLabel}" with a PR rationale showing either conformance to a cited existing clause or mechanical/tooling work with no behavior or contract impact.`
+              );
+              return;
+            }
+
+            core.info(`OK: implementation files ${implementationFiles.length}; decision files ${changedDecisionFiles.length}.`);

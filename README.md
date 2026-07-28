@@ -1,104 +1,154 @@
 # Spec-Driven Development Kit
 
-A lightweight collection of agent skills that support Spec-Driven Development (SDD) — the practice of recording all design decisions, trade-offs, and scope changes in spec files **before** any code is written.
+A portable spec-driven development (SDD) toolkit for teams that want product
+decisions, implementation, verification, releases, and pull requests to move
+together — designed for repositories worked on by coding agents (Claude Code,
+Codex, GitHub Copilot). It is intentionally independent of any product domain.
 
-## Skills
+## What Is Included
 
-### spec-first-change
+- `POLICY.md` defines the reusable engineering policy.
+- `project-profile.template.md` captures repository-specific authorities and
+  conventions without changing the shared policy.
+- `agent-source/instructions.md` is the canonical agent routing manual.
+- `agent-source/skills/` contains six focused workflow skills.
+- `templates/` contains the authority-document skeletons (product spec,
+  architecture record, roadmap, feature brief) and the records passed between
+  workflow stages.
+- `guardrails/` contains optional GitHub Actions backstops.
+- `scripts/sdd.sh` scaffolds the kit into a repository and renders the
+  Claude Code, Codex, and GitHub Copilot discovery files from the canonical
+  sources.
+- `VERSION` identifies the kit release vendored into adopting repositories.
 
-Enforces a spec-first development workflow. Before any feature, behavior change, or architectural decision is implemented in code, this skill verifies that the relevant spec files are reviewed, accurate, and updated to capture the decision.
+## Operating Model
 
-**When to use:**
-- New feature requests
-- Behavior or data model changes
-- API contract modifications
-- UX flow updates
-- Architecture or tech stack decisions
+```text
+bootstrap-specs ------------> authority documents + completed project profile
+                              (one-time foundation; rerun when an authority
+                               is missing)
 
-**How to invoke:**
-```
-/spec-first-change [task or change description]
-```
-
-### submit-pr
-
-Enforces test passage and PR template usage before submitting a Pull Request. Validates that all configured tests have passed and assembles a standardised PR body from the project's template.
-
-**When to use:**
-- Creating, submitting, or opening a pull request
-- Pushing a branch and creating a PR
-- Merging a feature branch via PR
-
-**How to invoke:**
-```
-/submit-pr [base-branch] [title]
-```
-
-### jira-ticket-work
-
-End-to-end JIRA ticket workflow orchestration. Takes a ticket from scope review through spec-driven implementation, acceptance criteria validation, PR submission, and ticket resolution. Composes the `spec-first-change` and `submit-pr` skills.
-
-**When to use:**
-- Working on, implementing, or picking up a JIRA ticket
-- Continuing work on an in-progress ticket
-- Finalising and resolving a ticket after implementation
-
-**How to invoke:**
-```
-/jira-ticket-work <ticket-key-or-url> [base-branch]
+manage-ticket
+    |
+    +-- refine-ticket ------> approved Implementation Ready record
+    |
+    +-- implement-ticket ---> spec-first-change -> verified change
+    |
+    +-- submit-pr ----------> reviewed and submitted pull request
+    |
+    +-- post-merge closure -> merged, tagged per release policy, closed
 ```
 
-## Getting Started
+`spec-first-change` is the development engine and also works stand-alone for
+ad-hoc changes without a work item (it prepares its own branch in that case).
+The ticket skills adapt issue-lifecycle stages to that engine. `submit-pr` owns
+delivery, and `manage-ticket` coordinates stages without duplicating their
+work. The issue tracker (e.g. Jira) is configuration in the project profile,
+not part of the skills.
 
-### Option A: Install as Qoder Plugins (Recommended)
+## Adopt In A Repository
 
-Each skill is packaged as a standalone Qoder-native plugin. Install only the ones you need:
+From a checkout of this kit, run:
 
-```bash
-# Install a single plugin
-qodercli plugin install --scope local /path/to/spec-driven-development-kit/plugins/spec-first-change
-qodercli plugin install --scope local /path/to/spec-driven-development-kit/plugins/submit-pr
-qodercli plugin install --scope local /path/to/spec-driven-development-kit/plugins/jira-ticket-work
+```sh
+/path/to/spec-driven-development-kit/scripts/sdd.sh init /path/to/your-repo
 ```
 
-Plugins can be installed independently — pick just `submit-pr` without the full kit.
+This vendors the kit into `your-repo/.sdd/` (policy, canonical agent sources,
+templates, guardrails, the script itself, and a `KIT_VERSION` stamp), creates
+`.sdd/project-profile.md` from the template and an empty
+`.sdd/project-skills/` home for repository-owned skills, and renders the
+agent discovery files:
 
-**Prerequisites for `jira-ticket-work`:** See [CONNECTORS.md](plugins/jira-ticket-work/CONNECTORS.md) for Atlassian MCP server setup and companion plugin requirements.
+| Agent | Instructions | Skills |
+|---|---|---|
+| Claude Code | `CLAUDE.md` | `.claude/skills/` |
+| Codex | `AGENTS.md` | `.codex/skills/` |
+| GitHub Copilot | `.github/copilot-instructions.md` | `.github/skills/` |
 
-### Option B: Manual Skill Installation
+Then:
 
-1. Copy the desired skill from `skills/` into your project's `.qoder/skills/` or `.agents/skills/` directory
-2. Invoke a skill using the `/skill-name` command
-3. Follow the workflow steps outlined in each skill
+1. Complete `.sdd/project-profile.md` — or run the `bootstrap-specs` skill,
+   which establishes missing authority documents from the templates and fills
+   the profile with you.
+2. Optionally copy `.sdd/guardrails/*.yml` to `.github/workflows/` and adapt
+   their path configuration.
+3. Commit `.sdd/` together with the rendered agent files.
+4. Test the workflow with one small mechanical change and one behavior change.
 
-### Using the Skills
+If the repository already has independently owned agent instruction files
+(`CLAUDE.md`, `AGENTS.md`, skills), reconcile them first — repository-specific
+rules move into `.sdd/project-profile.md` and repository-specific skills into
+`.sdd/project-skills/` — then remove the old files; the script refuses to
+overwrite files that do not carry its generated-file marker.
 
-1. Invoke a skill using the `/skill-name` command
-2. Follow the workflow steps outlined in each skill
+## Project-Local Skills
 
-## Plugin Structure
+Skills that belong to one repository (a domain-specific generator, a
+project-only workflow) live under `.sdd/project-skills/<skill-name>/SKILL.md`,
+in the same format as kit skills including the `{{GENERATED_NOTICE}}`
+placeholder. `sdd.sh sync` renders them to every configured agent alongside
+the kit skills; `sdd.sh update` never modifies them. A project skill may not
+reuse a kit skill's name — `sync` fails on a collision.
 
-```
-plugins/
-├── spec-first-change/     # Standalone plugin: spec-first workflow
-│   ├── .qoder-plugin/plugin.json
-│   ├── README.md
-│   └── skills/spec-first-change/SKILL.md
-├── submit-pr/             # Standalone plugin: PR submission workflow
-│   ├── .qoder-plugin/plugin.json
-│   ├── README.md
-│   └── skills/submit-pr/SKILL.md
-└── jira-ticket-work/      # Standalone plugin: JIRA ticket orchestration
-    ├── .qoder-plugin/plugin.json
-    ├── README.md
-    ├── CONNECTORS.md
-    └── skills/jira-ticket-work/SKILL.md
-```
+A skill may also carry supporting files — references, scripts, or
+agent-specific metadata such as a Codex `agents/openai.yaml`. Anything inside
+a skill directory besides `SKILL.md` is copied verbatim (binary-safe, no
+placeholder rendering) to every agent's skills tree; agents ignore metadata
+files that are not theirs. Because arbitrary formats cannot carry the
+generated-file marker, these copies are tracked in
+`.sdd/rendered-support.list` — a generated manifest that `sync` maintains and
+`check` verifies; commit it with the rendered files. A hand-placed copy that
+is identical to its source is adopted into the manifest; a differing
+unmanaged file is refused, same as for rendered instruction files.
 
-## Philosophy
+## Stay Current
 
-Spec-Driven Development ensures that:
-- All decisions are documented before implementation
-- Specs serve as the single source of truth
-- Scope creep is caught early through spec verification
-- Teams maintain alignment on product direction
+- Kit-owned sources under `.sdd/agent-source/` are refreshed by `sdd.sh
+  update`; durable project customization belongs in `.sdd/project-profile.md`
+  and `.sdd/project-skills/`. After editing any canonical source, run
+  `./.sdd/scripts/sdd.sh sync`. CI verifies with `./.sdd/scripts/sdd.sh check`
+  (see `guardrails/agent-sync-check.yml`).
+- To pull a new kit release into an adopted repository, run
+  `/path/to/spec-driven-development-kit/scripts/sdd.sh update /path/to/your-repo`
+  from a checkout of the desired kit tag. Kit-owned files are refreshed;
+  `.sdd/project-profile.md` and `.sdd/project-skills/` are preserved. Review
+  the diff — local edits to kit-owned files under `.sdd/` are overwritten by
+  design.
+
+## Adaptation Boundary
+
+Share the lifecycle, classifications, approval gates, evidence contracts, and
+guardrails. Configure these per project (in `.sdd/project-profile.md`):
+
+- specification and architecture authority;
+- implementation and decision paths;
+- issue provider, project, and supported work-item types;
+- default branch and branch naming;
+- release triggers, version policy, manifests, and lockfiles;
+- project-specific architecture invariants;
+- required tests, builds, and manual checks.
+
+Do not copy another project's product rules into the shared policy.
+
+## Non-Goals (v1)
+
+Deliberately out of scope; adopt project-local solutions if needed:
+
+- epic- or initiative-level decomposition (the skills operate on stories,
+  bugs, and tasks);
+- periodic spec-drift audits across a whole codebase (drift is handled
+  change-by-change through classification);
+- automated issue-provider integrations beyond what the coding agent's
+  configured tools provide.
+
+## Enforcement Levels
+
+| Level | Mechanism | Purpose |
+|---|---|---|
+| Policy | `POLICY.md` and agent instructions | Defines judgment and boundaries |
+| Workflow | Skills and record templates | Makes execution repeatable |
+| Guardrail | Pull-request checks | Enforces minimum evidence |
+
+Guardrails are deliberately blunt. They can prove that expected files and
+evidence are present; they cannot prove that a product decision is correct.
