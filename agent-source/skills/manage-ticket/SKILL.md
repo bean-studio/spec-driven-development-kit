@@ -14,10 +14,8 @@ description: >-
 
 Own lifecycle routing, cross-stage reconciliation, pull-request follow-up, and
 post-merge closure. Delegate focused work to `refine-ticket`,
-`implement-ticket`, and `submit-pr`.
-
-Apply the shared workflow rules in the agent instructions. The issue provider,
-Git conventions, and pull-request provider come from the project profile.
+`implement-ticket`, and `submit-pr`. Apply the shared workflow rules in the
+agent instructions; project configuration comes from the project profile.
 
 ## Reconcile And Route
 

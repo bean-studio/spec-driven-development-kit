@@ -12,12 +12,9 @@ description: >-
 
 # Implement Ticket
 
-Own the verified repository change and its implementation evidence. Do not
-submit a pull request, move the work item to review, or close it.
-
-Apply the shared workflow rules in the agent instructions. The issue provider,
-Git conventions, release policy, and verification commands come from the
-project profile.
+Own the verified repository change and its implementation evidence. Apply the
+shared workflow rules in the agent instructions; project configuration comes
+from the project profile.
 
 ## Workflow
 

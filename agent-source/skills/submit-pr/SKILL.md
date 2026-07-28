@@ -12,8 +12,7 @@ description: >-
 
 Start only after implementation is complete and submission is requested. Own
 final diff review, release assessment, verification, template completion, and
-pull-request creation. Do not refine scope, invent decisions, or change
-work-item state.
+pull-request creation.
 
 ## 1. Establish The Pull-Request Boundary
 

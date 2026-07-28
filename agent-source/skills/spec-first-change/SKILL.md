@@ -10,9 +10,8 @@ description: >-
 
 # Spec-First Change
 
-Own the sequence intake -> classify -> diagnose -> approve -> record -> implement
--> verify. Follow the repository's SDD policy, project profile, source
-precedence, and architecture invariants.
+Follow the repository's SDD policy, project profile, source precedence, and
+architecture invariants.
 
 Do not change implementation until the controlling decision is already explicit
 or the user has approved the new decision for its owning document.

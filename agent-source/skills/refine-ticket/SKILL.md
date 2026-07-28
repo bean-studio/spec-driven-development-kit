@@ -11,13 +11,9 @@ description: >-
 
 # Refine Ticket
 
-Own approved scope and the implementation handoff. Do not create a branch, edit
-repository files, move the work item to active work, implement, or submit a
-pull request.
-
-Apply the shared workflow rules in the agent instructions. The issue provider,
-supported work-item types, state semantics, and lifecycle-record location come
-from the project profile.
+Own approved scope and the implementation handoff. Apply the shared workflow
+rules in the agent instructions; project configuration comes from the project
+profile.
 
 ## Workflow
 
