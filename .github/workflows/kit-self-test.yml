@@ -171,3 +171,72 @@ jobs:
             exit 1
           fi
           "$target/.sdd/scripts/sdd.sh" check
+
+      - name: Verify an unknown agent name is rejected
+        run: |
+          target="$RUNNER_TEMP/target"
+          cp "$target/.sdd/agents.conf" "$RUNNER_TEMP/agents.conf.bak"
+          printf 'claude\nnot-an-agent\n' > "$target/.sdd/agents.conf"
+          if "$target/.sdd/scripts/sdd.sh" check; then
+            echo "check accepted an unknown agent name" >&2
+            exit 1
+          fi
+          cp "$RUNNER_TEMP/agents.conf.bak" "$target/.sdd/agents.conf"
+          "$target/.sdd/scripts/sdd.sh" check
+
+      - name: Verify disabling an agent removes only its generated files
+        run: |
+          target="$RUNNER_TEMP/target"
+          printf 'this file is mine\n' > "$target/.github/copilot-instructions.md.keep"
+          printf 'claude\n' > "$target/.sdd/agents.conf"
+          "$target/.sdd/scripts/sdd.sh" sync
+          for path in AGENTS.md .codex .github/copilot-instructions.md .github/skills; do
+            if [ -e "$target/$path" ]; then
+              echo "sync left $path for a disabled agent" >&2
+              exit 1
+            fi
+          done
+          for path in CLAUDE.md .claude/skills/spec-first-change/SKILL.md; do
+            if [ ! -f "$target/$path" ]; then
+              echo "sync removed $path for an enabled agent" >&2
+              exit 1
+            fi
+          done
+          if [ ! -f "$target/.github/copilot-instructions.md.keep" ]; then
+            echo "sync removed an unrelated repository file" >&2
+            exit 1
+          fi
+          "$target/.sdd/scripts/sdd.sh" check
+
+      - name: Verify a disabled agent's file reappearing is drift
+        run: |
+          target="$RUNNER_TEMP/target"
+          cp "$target/CLAUDE.md" "$target/AGENTS.md"
+          if "$target/.sdd/scripts/sdd.sh" check; then
+            echo "check passed with a generated file for a disabled agent" >&2
+            exit 1
+          fi
+          "$target/.sdd/scripts/sdd.sh" sync
+          "$target/.sdd/scripts/sdd.sh" check
+
+      - name: Verify a hand-owned file at a disabled agent's path survives
+        run: |
+          target="$RUNNER_TEMP/target"
+          printf 'hand-written instructions\n' > "$target/AGENTS.md"
+          "$target/.sdd/scripts/sdd.sh" sync
+          if ! grep -Fqx 'hand-written instructions' "$target/AGENTS.md"; then
+            echo "sync removed an unmanaged file at a disabled agent's path" >&2
+            exit 1
+          fi
+          "$target/.sdd/scripts/sdd.sh" check
+          rm "$target/AGENTS.md"
+
+      - name: Verify update preserves the agent list
+        run: |
+          target="$RUNNER_TEMP/target"
+          ./scripts/sdd.sh update "$target"
+          if [ -f "$target/AGENTS.md" ] || [ -e "$target/.codex" ]; then
+            echo "update re-rendered a disabled agent" >&2
+            exit 1
+          fi
+          "$target/.sdd/scripts/sdd.sh" check

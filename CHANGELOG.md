@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `.sdd/agents.conf`: repository-owned list of the agents `sdd.sh sync`
+  renders discovery files for. Dropping an agent removes the instructions,
+  skills, and supporting files previously generated for it, and `check`
+  reports any that reappear as drift. Only files carrying the generated-file
+  marker are removed, so hand-owned files at the same paths survive. `init`
+  and `update` create the file with every agent enabled; a repository adopted
+  before it existed keeps rendering all agents.
+
+### Fixed
+
+- `sync` now prunes the directories left behind when it removes a rendered
+  skill, instead of leaving empty skill folders in each agent's tree.
+
 ## [0.1.0] — 2026-07-28
 
 ### Changed
