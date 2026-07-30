@@ -68,6 +68,24 @@ jobs:
           fi
           "$RUNNER_TEMP/target/.sdd/scripts/sdd.sh" check
 
+      - name: Verify failed update restores previous kit-owned files
+        run: |
+          target="$RUNNER_TEMP/target"
+          marker="rollback-policy-marker"
+          echo "$marker" >> "$target/.sdd/POLICY.md"
+          sed -i '/GENERATED FILE/d' "$target/AGENTS.md"
+          if ./scripts/sdd.sh update "$target"; then
+            echo "update accepted an unmanaged generated-file conflict" >&2
+            exit 1
+          fi
+          if ! grep -Fqx "$marker" "$target/.sdd/POLICY.md"; then
+            echo "failed update did not restore the previous kit-owned policy" >&2
+            exit 1
+          fi
+          rm "$target/AGENTS.md"
+          "$target/.sdd/scripts/sdd.sh" sync
+          "$target/.sdd/scripts/sdd.sh" check
+
       - name: Verify project-local skills render and survive update
         run: |
           target="$RUNNER_TEMP/target"
@@ -102,14 +120,27 @@ jobs:
       - name: Verify a kit-skill name collision fails sync
         run: |
           target="$RUNNER_TEMP/target"
-          mkdir -p "$target/.sdd/project-skills/spec-first-change"
-          printf -- '---\nname: spec-first-change\ndescription: Colliding skill.\n---\n{{GENERATED_NOTICE}}\n' \
-            > "$target/.sdd/project-skills/spec-first-change/SKILL.md"
+          mkdir -p "$target/.sdd/project-skills/implement-change"
+          printf -- '---\nname: implement-change\ndescription: Colliding skill.\n---\n{{GENERATED_NOTICE}}\n' \
+            > "$target/.sdd/project-skills/implement-change/SKILL.md"
           if "$target/.sdd/scripts/sdd.sh" sync; then
             echo "sync accepted a project skill that shadows a kit skill" >&2
             exit 1
           fi
-          rm -r "$target/.sdd/project-skills/spec-first-change"
+          rm -r "$target/.sdd/project-skills/implement-change"
+          "$target/.sdd/scripts/sdd.sh" check
+
+      - name: Verify skill metadata validation rejects mismatched names
+        run: |
+          target="$RUNNER_TEMP/target"
+          mkdir -p "$target/.sdd/project-skills/directory-name"
+          printf -- '---\nname: different-name\ndescription: Invalid project-local skill.\n---\n{{GENERATED_NOTICE}}\n' \
+            > "$target/.sdd/project-skills/directory-name/SKILL.md"
+          if "$target/.sdd/scripts/sdd.sh" sync; then
+            echo "sync accepted a skill whose name does not match its directory" >&2
+            exit 1
+          fi
+          rm -r "$target/.sdd/project-skills/directory-name"
           "$target/.sdd/scripts/sdd.sh" check
 
       - name: Verify supporting files render with a manifest
@@ -196,7 +227,7 @@ jobs:
               exit 1
             fi
           done
-          for path in CLAUDE.md .claude/skills/spec-first-change/SKILL.md; do
+          for path in CLAUDE.md .claude/skills/implement-change/SKILL.md; do
             if [ ! -f "$target/$path" ]; then
               echo "sync removed $path for an enabled agent" >&2
               exit 1

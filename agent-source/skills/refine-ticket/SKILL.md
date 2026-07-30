@@ -11,18 +11,21 @@ description: >-
 
 # Refine Ticket
 
-Own approved scope and the implementation handoff. Apply the shared workflow
-rules in the agent instructions; project configuration comes from the project
-profile.
+Own approved scope and the implementation handoff. Do not create a branch, edit
+repository files, move the work item to active work, implement, or submit a
+pull request.
+
+Apply the shared workflow rules in the agent instructions. The issue provider,
+supported work-item types, state semantics, and lifecycle-record location come
+from the project profile.
 
 ## Workflow
 
 1. Load the work item, relevant parent and links, lifecycle record,
    dependencies, and available transitions.
 2. Classify and diagnose the change using the four classifications in the
-   shared policy, with the same evidence standard `spec-first-change` applies:
-   trace the implicated behavior to its controlling decision, code path, and
-   cheapest discriminating check.
+   shared policy and change protocol: trace the implicated behavior to its
+   controlling decision, code path, and cheapest discriminating check.
 3. Identify gaps or contradictions in objective, boundaries, exclusions,
    acceptance criteria, dependencies, decisions, verification, release impact,
    and implementation boundary.

@@ -37,8 +37,8 @@ architecture-invariants section links to.
 ## 7. Testing Strategy
 
 Record what must be tested first (hard rules, state transitions, contract
-shapes), what may be tested after implementation, and the required commands'
-home in the project profile.
+shapes), what may be tested after implementation, and where the required
+commands are listed in the project profile.
 
 ## Open Questions
 

@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-07-30
+
+Synchronized with the upstream `ops-ds-sdd-kit` 0.4.0 practice package. The
+version jumps from `0.2.0` to `0.4.0` to keep numbering aligned with upstream;
+upstream's `0.3.0` (skill supporting files) already shipped here in `0.1.0`.
+
+### Added
+
+- `implement-change`, one implementation workflow for both tracked and ad-hoc
+  changes. It reuses an approved ticket handoff when present and handles
+  in-scope review corrections without a separate workflow.
+
+### Changed
+
+- The kit now has four user-facing skills: `bootstrap-specs`, optional
+  `refine-ticket`, `implement-change`, and `submit-pr`.
+- Repository-specific facts remain in one Markdown project profile; no
+  machine-readable configuration or workflow modes are required.
+- Implementation Ready and lifecycle evidence are short checklists again,
+  without schemas, fingerprints, or invalidation records.
+- Implementation exclusively owns pre-submission release and delivery
+  bookkeeping. Pull-request submission validates the final diff without
+  becoming another implementation path.
+- Review follow-up routes in-scope code corrections back to implementation and
+  material changes back to refinement.
+- The optional decision guardrail keeps four clearly marked local settings and
+  requires one populated no-decision-edit rationale.
+- `sdd.sh sync` preflights all generated destinations before writing, validates
+  skill names against their directories, and requires exactly one
+  `{{GENERATED_NOTICE}}` placeholder per source, so a conflict can no longer
+  leave a partial write. `sdd.sh update` stages and backs up kit-owned files
+  and restores them if rendering fails.
+- Adoption guidance preserves directory-scoped and vendor-specific agent rules
+  instead of recommending that existing instruction files be flattened and
+  removed.
+
+### Retained
+
+- `.sdd/agents.conf` (this fork's `0.2.0` feature) is carried onto the
+  rewritten `sdd.sh`: the enabled-agent list still drives preflight, sync, and
+  removal, `update` still preserves the file, and its self-test coverage is
+  unchanged.
+
+### Migration
+
+- `implement-ticket`, `spec-first-change`, and `manage-ticket` are replaced by
+  `implement-change` plus concise routing in the generated agent instructions.
+  Running `sdd.sh update` and `sync` removes their old generated copies.
+
 ## [0.2.0] — 2026-07-28
 
 ### Added

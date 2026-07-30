@@ -2,19 +2,19 @@
 name: bootstrap-specs
 description: >-
   Establish the spec-driven development foundation in a repository that lacks
-  it: a product specification, an architecture record, a delivery roadmap, and
-  a completed project profile. Use when adopting the SDD kit in a new or
-  existing codebase, or when a required authority document is missing. Does
-  not implement product changes.
+  it: authority documents, release and pull-request conventions, and a
+  completed project profile. Use when adopting the SDD kit in a new or existing
+  codebase, or when a required foundation document is missing. Does not
+  implement product changes.
 ---
 {{GENERATED_NOTICE}}
 
 # Bootstrap Specs
 
-Own the creation of the repository's authority documents and project profile.
-Do not invent product intent: every statement written into an authority
-document must come from the user, an existing document, or observed current
-behavior labeled as such.
+Own the creation of the repository's authority and operational documents and
+project profile. Do not implement features, refactor code, or invent product
+intent. Every statement written into an authority document must come from the
+user, an existing document, or observed current behavior labeled as such.
 
 ## 1. Inventory What Exists
 
@@ -30,9 +30,9 @@ existing documents can be promoted or referenced instead of rewritten.
 
 ## 2. Establish Each Missing Authority
 
-Work through the missing documents in dependency order — product specification,
-then architecture record, then delivery roadmap — using the kit templates in
-`.sdd/templates/`:
+Work through missing documents in dependency order — product specification,
+architecture record, feature-contract convention, delivery roadmap, and
+release policy — using the kit templates in `.sdd/templates/`:
 
 - **Product specification** (`product-spec.md` template): capture purpose,
   users, scope, and intended behavior from the user. For an existing codebase,
@@ -43,6 +43,13 @@ then architecture record, then delivery roadmap — using the kit templates in
   to feature contracts.
 - **Delivery roadmap** (`roadmap.md` template): record phases or milestones,
   their completion criteria, and current status.
+- **Release policy** (`releases.md` template): define triggers, version
+  interpretation, bookkeeping, verification, and post-merge actions.
+
+Establish a changelog and repository pull-request template from the kit
+templates when the configured paths do not exist. Establish the feature-
+contract directory and naming convention; create a feature brief only for a
+feature whose intent is approved.
 
 For each document: draft from the template, present the draft, and obtain
 explicit approval before committing it as an authority. Record unresolved
@@ -51,18 +58,22 @@ points as open questions with owners — never as invented decisions.
 ## 3. Complete The Project Profile
 
 Fill every section of `.sdd/project-profile.md` with authoritative values:
-authority paths, implementation and decision paths, issue tracking, Git and
-pull-request conventions, release policy, architecture invariants,
-verification commands, and external systems. Obtain approval for values that
-are choices rather than facts.
+authority paths and propagation, implementation and decision paths, issue
+tracking, Git and pull-request conventions, release settings, architecture
+invariants, verification commands, and external systems. Use an explicit `N/A`
+with rationale for optional authorities or integrations. Obtain approval for
+values that are choices rather than facts.
 
 ## 4. Verify The Foundation
 
-- Every authority row in the project profile resolves to an existing document.
+- Every authority path resolves to an existing document or carries an approved
+  `N/A` rationale.
+- The feature-contract convention resolves to an existing directory.
 - The specification chain and propagation rule are stated.
+- The configured release policy, changelog, and pull-request template exist.
 - Verification commands run (or the profile records why they cannot yet).
 - Rendered agent files are current per the kit's sync check.
 
 Finish with a summary of created and promoted authorities, open questions, and
-the recommended first change to run through `spec-first-change`. Stop before
-any product implementation.
+the recommended first change to run through `implement-change`. Stop before any
+product implementation.

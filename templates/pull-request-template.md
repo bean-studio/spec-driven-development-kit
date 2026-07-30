@@ -13,6 +13,10 @@
   - [ ] Mechanical/tooling: no behavior or contract changes because:
 
 <!-- Select the decision-file route or one valid no-edit route, not both. Apply the configured label only for a completed no-edit rationale. -->
+<!-- For automated validation, replace the values below when using the no-edit route. -->
+- No-decision reason: not-applicable
+- Existing clause: not-applicable
+- Rationale: not-applicable
 
 ## Release Record
 
