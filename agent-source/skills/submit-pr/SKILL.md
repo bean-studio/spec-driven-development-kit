@@ -1,18 +1,19 @@
 ---
 name: submit-pr
 description: >-
-  Review a completed change, apply required release bookkeeping, verify it, and
-  open a pull request from the repository template. Use for explicit pull-
-  request submission and coordinator handoffs. Does not decide product scope or
-  change work-item state.
+  Validate a completed change's decision, release, and verification evidence
+  and open a pull request from the repository template. Use for explicit
+  pull-request submission after implementation. Does not edit repository
+  content, decide product scope, or close a work item.
 ---
 {{GENERATED_NOTICE}}
 
 # Submit Pull Request
 
 Start only after implementation is complete and submission is requested. Own
-final diff review, release assessment, verification, template completion, and
-pull-request creation.
+final diff and evidence validation, template completion, and pull-request
+creation. Do not refine scope, invent decisions, edit repository content, or
+close a work item.
 
 ## 1. Establish The Pull-Request Boundary
 
@@ -36,23 +37,18 @@ Do not use the no-decision-edit route to avoid recording a material decision.
 Apply the configured label only when its rationale is present in the pull-request
 body.
 
-## 3. Assess Release Impact
+## 3. Validate Release Evidence
 
-Apply the project profile and release policy. When implementation already
-produced a release assessment in the lifecycle evidence, re-confirm it against
-the final diff instead of re-deriving it; revise it only when the diff no
-longer matches the assessed scope.
-
-- If a release trigger is met, choose the version according to project policy,
-  confirm genuine ambiguity, add the changelog entry, and align every version-
-  bearing manifest and corresponding lockfile.
-- If no release trigger is met, record the reason in the pull-request template.
-
-Verify version metadata before leaving this stage.
+Validate the implementation's release assessment and bookkeeping against the
+final diff. If a trigger is met, require aligned delivery status, changelog,
+manifests, and lockfiles. If no trigger is met, require its rationale. Missing
+or contradictory bookkeeping means implementation is incomplete; return to
+that stage instead of editing release files here.
 
 ## 4. Verify Before Submission
 
-Run the tests, builds, static checks, and manual checks appropriate to the actual
+Reuse recorded checks when the change has not moved since they ran. Run only
+missing, affected, or submission-specific checks appropriate to the actual
 diff and release impact. Report failed and skipped checks faithfully. Do not
 submit a change that fails required verification without explicit exception
 handling defined by team policy.
@@ -68,8 +64,6 @@ Use the repository pull-request template, not an ad hoc body. Complete:
 - verification evidence;
 - known limitations and follow-up work.
 
-Open the pull request against the configured base and return its URL. Leave
-work-item linking and review-state transitions to the coordinating workflow.
-When the change belongs to a tracked work item and no coordinating workflow is
-active, tell the user to run `manage-ticket` so the pull request is linked and
-lifecycle state is updated.
+Open the pull request against the configured base and return its URL. When the
+change belongs to a tracked item, link the pull request once, update the stable
+lifecycle record, and move the item to an available review state.

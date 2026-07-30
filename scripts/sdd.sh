@@ -9,11 +9,11 @@ Usage: sdd.sh <command> [target-repo]
 
 Commands run from a kit checkout:
   init [target]    Vendor the kit into <target>/.sdd, create
-                   .sdd/project-profile.md from the template, and render
-                   agent files. Refuses if <target>/.sdd already exists.
+                   the project profile from its template, and render agent
+                   files. Refuses if <target>/.sdd exists.
   update [target]  Refresh kit-owned files under <target>/.sdd (preserving
-                   .sdd/project-profile.md and .sdd/agents.conf), then
-                   re-render agent files.
+                   the project profile, local skills, and .sdd/agents.conf),
+                   then re-render agent files.
 
 Commands run from a kit checkout with [target], or from <repo>/.sdd/scripts:
   sync [target]    Render agent instruction and skill files from
@@ -37,10 +37,41 @@ kit_root=$(cd "$script_dir/.." && pwd)
 
 temp_root=
 init_cleanup_dir=
+kit_stage_dir=
+update_backup_dir=
+update_applied=0
+kit_owned_paths='POLICY.md agent-source templates guardrails scripts/sdd.sh KIT_VERSION'
+
+remove_kit_owned_paths() {
+  for relative_path in $kit_owned_paths; do
+    rm -rf "$sdd_dir/$relative_path"
+  done
+}
+
+rollback_update() {
+  remove_kit_owned_paths
+  for relative_path in $kit_owned_paths; do
+    if [ -e "$update_backup_dir/$relative_path" ]; then
+      mkdir -p "$(dirname "$sdd_dir/$relative_path")"
+      mv "$update_backup_dir/$relative_path" "$sdd_dir/$relative_path"
+    fi
+  done
+  echo "sdd: update failed; restored previous kit-owned files" >&2
+}
+
 on_exit() {
   rc=$?
   if [ -n "$temp_root" ]; then
     rm -rf "$temp_root"
+  fi
+  if [ -n "$kit_stage_dir" ]; then
+    rm -rf "$kit_stage_dir"
+  fi
+  if [ "$rc" -ne 0 ] && [ "$update_applied" -eq 1 ] && [ -n "$update_backup_dir" ]; then
+    rollback_update
+  fi
+  if [ -n "$update_backup_dir" ]; then
+    rm -rf "$update_backup_dir"
   fi
   if [ "$rc" -ne 0 ] && [ -n "$init_cleanup_dir" ]; then
     rm -rf "$init_cleanup_dir"
@@ -166,25 +197,82 @@ resolve_repo_root() {
 }
 
 copy_kit_owned_files() {
-  mkdir -p "$sdd_dir/scripts"
-  rm -rf "$sdd_dir/agent-source" "$sdd_dir/templates" "$sdd_dir/guardrails"
-  cp "$kit_root/POLICY.md" "$sdd_dir/POLICY.md"
-  cp -R "$kit_root/agent-source" "$sdd_dir/agent-source"
-  cp -R "$kit_root/templates" "$sdd_dir/templates"
-  cp -R "$kit_root/guardrails" "$sdd_dir/guardrails"
-  cp "$kit_root/scripts/sdd.sh" "$sdd_dir/scripts/sdd.sh"
-  chmod +x "$sdd_dir/scripts/sdd.sh"
-  cp "$kit_root/VERSION" "$sdd_dir/KIT_VERSION"
+  for required_path in POLICY.md agent-source templates guardrails scripts/sdd.sh VERSION; do
+    if [ ! -e "$kit_root/$required_path" ]; then
+      echo "sdd: kit checkout is missing $required_path" >&2
+      exit 1
+    fi
+  done
+
+  kit_stage_dir=$(mktemp -d "$sdd_dir/.kit-stage.XXXXXX")
+  mkdir -p "$kit_stage_dir/scripts"
+  cp "$kit_root/POLICY.md" "$kit_stage_dir/POLICY.md"
+  cp -R "$kit_root/agent-source" "$kit_stage_dir/agent-source"
+  cp -R "$kit_root/templates" "$kit_stage_dir/templates"
+  cp -R "$kit_root/guardrails" "$kit_stage_dir/guardrails"
+  cp "$kit_root/scripts/sdd.sh" "$kit_stage_dir/scripts/sdd.sh"
+  chmod +x "$kit_stage_dir/scripts/sdd.sh"
+  cp "$kit_root/VERSION" "$kit_stage_dir/KIT_VERSION"
+
+  if [ "$command" = "update" ]; then
+    update_backup_dir=$(mktemp -d "$sdd_dir/.kit-backup.XXXXXX")
+    for relative_path in $kit_owned_paths; do
+      if [ -e "$sdd_dir/$relative_path" ]; then
+        mkdir -p "$(dirname "$update_backup_dir/$relative_path")"
+        mv "$sdd_dir/$relative_path" "$update_backup_dir/$relative_path"
+      fi
+    done
+    update_applied=1
+  fi
+
+  for relative_path in $kit_owned_paths; do
+    mkdir -p "$(dirname "$sdd_dir/$relative_path")"
+    mv "$kit_stage_dir/$relative_path" "$sdd_dir/$relative_path"
+  done
+  rm -rf "$kit_stage_dir"
+  kit_stage_dir=
+}
+
+commit_update_transaction() {
+  if [ -n "$update_backup_dir" ]; then
+    rm -rf "$update_backup_dir"
+    update_backup_dir=
+  fi
+  update_applied=0
 }
 
 render() {
   source_file=$1
   output_file=$2
-  if ! grep -Fq "$placeholder" "$source_file"; then
-    echo "sdd: canonical source is missing the $placeholder placeholder: $source_file" >&2
+  placeholder_count=$(grep -F -c "$placeholder" "$source_file" || true)
+  if [ "$placeholder_count" -ne 1 ]; then
+    echo "sdd: canonical source must contain exactly one $placeholder placeholder: $source_file" >&2
     exit 1
   fi
   sed -e "s#$placeholder#$notice#g" "$source_file" > "$output_file"
+}
+
+preflight_file() {
+  expected=$1
+  destination=$2
+  relative_destination=${destination#"$repo_root"/}
+
+  if [ -f "$destination" ] && ! cmp -s "$expected" "$destination" && ! is_managed "$destination"; then
+    echo "sdd: refusing to overwrite unmanaged file $relative_destination; reconcile it into .sdd/agent-source/ or remove it first" >&2
+    exit 1
+  fi
+}
+
+preflight_support_file() {
+  expected=$1
+  destination=$2
+  relative_destination=${destination#"$repo_root"/}
+
+  if [ -f "$destination" ] && ! cmp -s "$expected" "$destination" &&
+     ! grep -Fqx "$relative_destination" "$old_support_manifest"; then
+    echo "sdd: refusing to overwrite unmanaged supporting file $relative_destination; reconcile it into its skill's source directory or remove it first" >&2
+    exit 1
+  fi
 }
 
 sync_file() {
@@ -226,9 +314,11 @@ collect_expected_skills() {
   expected_skills_root="$temp_root/expected-skills"
   expected_skills_list="$temp_root/expected-skills.list"
   expected_support_list="$temp_root/expected-support.list"
+  expected_names_list="$temp_root/expected-skill-names.list"
   mkdir -p "$expected_skills_root"
   : > "$expected_skills_list"
   : > "$expected_support_list"
+  : > "$expected_names_list"
 
   for skills_source in "$source_skills" "$sdd_dir/project-skills"; do
     if [ ! -d "$skills_source" ]; then
@@ -238,6 +328,17 @@ collect_expected_skills() {
     find "$skills_source" -name SKILL.md -type f | sort > "$source_list"
     while IFS= read -r source_skill; do
       relative_skill=${source_skill#"$skills_source"/}
+      skill_directory=$(basename "$(dirname "$relative_skill")")
+      declared_name=$(sed -n 's/^name:[[:space:]]*//p' "$source_skill" | sed -n '1p')
+      if [ -z "$declared_name" ] || [ "$declared_name" != "$skill_directory" ]; then
+        echo "sdd: skill name '$declared_name' must match directory '$skill_directory': $source_skill" >&2
+        exit 1
+      fi
+      if grep -Fqx "$declared_name" "$expected_names_list"; then
+        echo "sdd: duplicate skill name '$declared_name' across canonical sources" >&2
+        exit 1
+      fi
+      printf '%s\n' "$declared_name" >> "$expected_names_list"
       if [ -f "$expected_skills_root/$relative_skill" ]; then
         echo "sdd: skill '$relative_skill' exists in both .sdd/agent-source/skills/ and .sdd/project-skills/; rename the project skill" >&2
         exit 1
@@ -262,6 +363,24 @@ collect_expected_skills() {
   done
   sort -o "$expected_skills_list" "$expected_skills_list"
   sort -o "$expected_support_list" "$expected_support_list"
+}
+
+preflight_agent() {
+  manual_path=$1
+  skills_root=$2
+
+  expected_manual="$temp_root/$manual_path"
+  mkdir -p "$(dirname "$expected_manual")"
+  render "$source_manual" "$expected_manual"
+  preflight_file "$expected_manual" "$repo_root/$manual_path"
+
+  while IFS= read -r relative_skill; do
+    preflight_file "$expected_skills_root/$relative_skill" "$repo_root/$skills_root/$relative_skill"
+  done < "$expected_skills_list"
+
+  while IFS= read -r relative_support; do
+    preflight_support_file "$expected_skills_root/$relative_support" "$repo_root/$skills_root/$relative_support"
+  done < "$expected_support_list"
 }
 
 # Supporting files carry no notice, so managed-ness comes from the manifest:
@@ -388,7 +507,6 @@ run_sync() {
   if [ ! -f "$sdd_dir/project-profile.md" ]; then
     echo "sdd: warning: $sdd_dir/project-profile.md is missing; complete it before relying on the workflow" >&2
   fi
-
   temp_root=$(mktemp -d "${TMPDIR:-/tmp}/sdd-sync.XXXXXX")
   drift=0
 
@@ -404,6 +522,11 @@ run_sync() {
 
   read_enabled_agents
   collect_expected_skills
+  for agent in $known_agents; do
+    if agent_enabled "$agent"; then
+      preflight_agent "$(agent_manual "$agent")" "$(agent_skills_root "$agent")"
+    fi
+  done
   for agent in $known_agents; do
     if agent_enabled "$agent"; then
       sync_agent "$(agent_manual "$agent")" "$(agent_skills_root "$agent")"
@@ -505,7 +628,7 @@ sdd: initialized $sdd_dir (kit version $(cat "$kit_root/VERSION"))
 
 Next steps:
   1. Complete .sdd/project-profile.md (or run the bootstrap-specs skill to
-     establish missing authority documents and fill the profile).
+     establish missing foundation documents and fill the profile).
   2. Optionally copy .sdd/guardrails/*.yml to .github/workflows/ and adapt
      their path configuration.
   3. Commit .sdd/ together with the rendered agent files.
@@ -522,7 +645,8 @@ EOF
     write_default_agents_conf
     mode=write
     run_sync
-    echo "sdd: updated kit-owned files in $sdd_dir to version $(cat "$kit_root/VERSION"); .sdd/project-profile.md and .sdd/agents.conf were preserved"
+    commit_update_transaction
+    echo "sdd: updated kit-owned files in $sdd_dir to version $(cat "$kit_root/VERSION"); project profile, local skills, and .sdd/agents.conf were preserved"
     ;;
   sync)
     resolve_repo_root

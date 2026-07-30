@@ -9,7 +9,8 @@
 - Delivery plans own ordering and completion state.
 - Code is downstream. Restore code to an explicit authoritative decision rather
   than weakening that decision to match drifted implementation.
-- Each repository must identify its concrete authorities in a project profile.
+- Each repository must identify its concrete authorities and their precedence
+  in a project profile.
 
 ## 2. Change Classification
 
@@ -45,12 +46,15 @@ decision work, obtain a decision instead of choosing the easiest route.
 
 - Refinement owns approved scope and the implementation handoff. It does not
   implement.
-- Implementation owns the verified repository change. It does not submit a pull
-  request or close the work item.
-- Pull-request submission owns final review, release bookkeeping, verification,
-  and submission. It does not invent scope or product decisions.
-- Lifecycle coordination reconciles state and routes to focused workflows. It
-  does not create a second implementation path.
+- Implementation owns the verified repository change, including required
+  decision propagation, release bookkeeping, and delivery-status updates. It
+  does not submit a pull request or close the work item.
+- Pull-request submission owns final diff and evidence validation, pull-request
+  template completion, and submission. It does not invent scope, make product
+  decisions, or become a second path for repository changes.
+- Review follow-up that changes code returns to implementation when it remains
+  inside approved scope, or to refinement when it changes material scope,
+  acceptance criteria, dependencies, or decisions.
 
 Cross a boundary only after the current stage's completion contract is satisfied
 and the next required approval is present.
@@ -59,14 +63,14 @@ and the next required approval is present.
 
 Require explicit approval for:
 
-- finalized implementation scope and material decisions;
-- beginning implementation from an approved handoff;
+- new or changed material decisions and materially expanded scope;
 - unsafe branch preparation or handling ambiguous worktree state;
 - material scope changes discovered during implementation;
 - pull-request submission when it was not already explicitly requested.
 
-Approval must identify what was approved. A broad request does not silently
-waive later material-decision gates.
+An explicit request to implement a clear boundary authorizes implementation.
+Do not re-request a still-current approval, but do not treat a broad request as
+approval for a newly discovered material decision.
 
 ## 6. Git Safety
 
@@ -77,6 +81,8 @@ waive later material-decision gates.
 - Do not discard, overwrite, hide, or rewrite unrelated changes.
 - Reconcile local, remote, work-item, and pull-request state before mutating any
   of them.
+- Refresh work-item, branch, transition, and pull-request state immediately
+  before mutating the corresponding system.
 
 ## 7. Verification And Evidence
 
@@ -87,6 +93,8 @@ waive later material-decision gates.
 - Use the cheapest focused check that can falsify the implementation hypothesis,
   then broaden verification according to blast radius.
 - Report passed, failed, and skipped checks faithfully.
+- Reuse verification evidence when the tested change has not moved and project
+  policy does not require a fresh run.
 - Completion evidence identifies implemented scope, decision basis, acceptance
   evidence, tests, release impact, limitations, blockers, and next action.
 
@@ -102,6 +110,9 @@ waive later material-decision gates.
   not require a product release unless the project profile says otherwise.
 - Post-merge tag or publish steps required by the project's release policy are
   performed or confirmed during lifecycle closure and recorded in its evidence.
+- Pull-request submission validates release bookkeeping against the final diff.
+  Missing or contradictory bookkeeping makes implementation incomplete and
+  returns to that stage.
 
 ## 9. Pull-Request Guardrails
 
@@ -121,5 +132,5 @@ waive later material-decision gates.
 - Generate vendor-specific discovery files when multiple agent products are
   supported.
 - Mark generated files and reject stale generated outputs in CI.
-- Put project-specific rules in the project profile rather than forking shared
-  skills without need.
+- Put project-specific facts and rules in the project profile rather than
+  forking shared skills without need.
