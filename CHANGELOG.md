@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-08-03
+
+Synchronized with the upstream `ops-ds-sdd-kit` 0.5.0 practice package.
+
+### Added
+
+- `setup-sdd`, a fifth skill that owns kit adoption, guardrail installation,
+  kit updates, and rendered-file drift repair. It bundles the project-profile
+  template and both GitHub Actions guardrail workflows as supporting files.
+
+### Changed
+
+- Every kit resource now ships inside the skill that uses it, following the
+  Agent Skills `assets/` convention: the specification, architecture, roadmap,
+  release, feature-brief, changelog, and pull-request skeletons moved into
+  `bootstrap-specs/assets/`; the Implementation Ready record template into
+  `refine-ticket/assets/`; the lifecycle-evidence template into
+  `implement-change/assets/`. The top-level `templates/`, `guardrails/`, and
+  `project-profile.template.md` are gone, so skills are self-contained in
+  each agent's rendered skill tree.
+- `sdd.sh` recognizes a kit checkout by `VERSION` (and a vendored copy by
+  `KIT_VERSION`) instead of the removed top-level profile template, and no
+  longer vendors `templates/` or `guardrails/` as top-level `.sdd/` paths.
+- Fresh installs always produce `.sdd/rendered-support.list`, since kit
+  skills now carry supporting files.
+
+### Retained
+
+- `.sdd/agents.conf` is unaffected: the enabled-agent list still drives
+  preflight, sync, and removal, `update` still preserves the file, and its
+  self-test coverage is unchanged.
+
+### Migration
+
+- `sdd.sh update` removes the legacy `.sdd/templates/` and `.sdd/guardrails/`
+  directories from repositories initialized with older kits; guardrail
+  workflows already copied to `.github/workflows/` are unaffected. References
+  to `.sdd/templates/` in project-local skills should point at the bundled
+  copies under the kit skills instead.
+
 ## [0.4.0] — 2026-07-30
 
 Synchronized with the upstream `ops-ds-sdd-kit` 0.4.0 practice package. The

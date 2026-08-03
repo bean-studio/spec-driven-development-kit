@@ -33,8 +33,8 @@ from the project profile.
    propose exact decision text.
 5. Present the complete proposed handoff and obtain explicit approval.
 6. Preserve unrelated work-item content while updating exposed native fields.
-7. Create or update one stable Implementation Ready record using the
-   repository template.
+7. Create or update one stable Implementation Ready record using
+   `assets/implementation-ready.md` bundled with this skill.
 
 Set **Implementation ready: Yes** only when:
 

@@ -28,6 +28,27 @@ jobs:
         run: ./.sdd/scripts/sdd.sh check
         working-directory: ${{ runner.temp }}/target
 
+      - name: Verify kit-skill supporting files render with a manifest
+        run: |
+          target="$RUNNER_TEMP/target"
+          for root in .claude/skills .codex/skills .github/skills; do
+            for f in bootstrap-specs/assets/product-spec.md \
+                     refine-ticket/assets/implementation-ready.md \
+                     implement-change/assets/lifecycle-evidence.md \
+                     setup-sdd/assets/guardrails/agent-sync-check.yml \
+                     setup-sdd/assets/guardrails/spec-decision-check.yml \
+                     setup-sdd/assets/project-profile.template.md; do
+              if [ ! -f "$target/$root/$f" ]; then
+                echo "kit supporting file was not rendered to $root/$f" >&2
+                exit 1
+              fi
+              if ! grep -Fqx "$root/$f" "$target/.sdd/rendered-support.list"; then
+                echo "manifest is missing $root/$f" >&2
+                exit 1
+              fi
+            done
+          done
+
       - name: Verify the vendored kit version matches VERSION
         run: |
           expected=$(cat VERSION)
@@ -57,13 +78,19 @@ jobs:
             exit 1
           fi
 
-      - name: Verify update preserves the project profile
+      - name: Verify update preserves the project profile and removes legacy kit paths
         run: |
           marker="project-local marker line"
           echo "$marker" >> "$RUNNER_TEMP/target/.sdd/project-profile.md"
+          mkdir -p "$RUNNER_TEMP/target/.sdd/templates" "$RUNNER_TEMP/target/.sdd/guardrails"
+          echo "legacy" > "$RUNNER_TEMP/target/.sdd/templates/legacy.md"
           ./scripts/sdd.sh update "$RUNNER_TEMP/target"
           if ! grep -Fqx "$marker" "$RUNNER_TEMP/target/.sdd/project-profile.md"; then
             echo "update clobbered .sdd/project-profile.md" >&2
+            exit 1
+          fi
+          if [ -e "$RUNNER_TEMP/target/.sdd/templates" ] || [ -e "$RUNNER_TEMP/target/.sdd/guardrails" ]; then
+            echo "update left legacy .sdd/templates or .sdd/guardrails behind" >&2
             exit 1
           fi
           "$RUNNER_TEMP/target/.sdd/scripts/sdd.sh" check
@@ -188,7 +215,7 @@ jobs:
           fi
           "$target/.sdd/scripts/sdd.sh" check
 
-      - name: Verify removing the skill removes supporting files and the manifest
+      - name: Verify removing the skill removes its supporting files and manifest entries
         run: |
           target="$RUNNER_TEMP/target"
           rm -r "$target/.sdd/project-skills/support-skill"
@@ -197,8 +224,8 @@ jobs:
             echo "sync left rendered files for a deleted skill" >&2
             exit 1
           fi
-          if [ -f "$target/.sdd/rendered-support.list" ]; then
-            echo "sync left an empty rendered-support manifest" >&2
+          if grep -F "support-skill/" "$target/.sdd/rendered-support.list"; then
+            echo "manifest still lists the deleted skill's supporting files" >&2
             exit 1
           fi
           "$target/.sdd/scripts/sdd.sh" check

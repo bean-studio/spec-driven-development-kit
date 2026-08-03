@@ -40,17 +40,21 @@ init_cleanup_dir=
 kit_stage_dir=
 update_backup_dir=
 update_applied=0
-kit_owned_paths='POLICY.md agent-source templates guardrails scripts/sdd.sh KIT_VERSION'
+kit_owned_paths='POLICY.md agent-source scripts/sdd.sh KIT_VERSION'
+# Top-level paths owned by kits before 0.5.0 (templates and guardrails now
+# live inside agent-source/skills/). Removed on update, restored on rollback.
+legacy_kit_paths='templates guardrails'
+profile_template_path='agent-source/skills/setup-sdd/assets/project-profile.template.md'
 
 remove_kit_owned_paths() {
-  for relative_path in $kit_owned_paths; do
+  for relative_path in $kit_owned_paths $legacy_kit_paths; do
     rm -rf "$sdd_dir/$relative_path"
   done
 }
 
 rollback_update() {
   remove_kit_owned_paths
-  for relative_path in $kit_owned_paths; do
+  for relative_path in $kit_owned_paths $legacy_kit_paths; do
     if [ -e "$update_backup_dir/$relative_path" ]; then
       mkdir -p "$(dirname "$sdd_dir/$relative_path")"
       mv "$update_backup_dir/$relative_path" "$sdd_dir/$relative_path"
@@ -161,12 +165,13 @@ copilot
 EOF
 }
 
+# A kit checkout carries VERSION; a vendored .sdd copy carries KIT_VERSION.
 is_kit_checkout() {
-  [ -f "$kit_root/project-profile.template.md" ] && [ -d "$kit_root/agent-source" ]
+  [ -f "$kit_root/VERSION" ] && [ -d "$kit_root/agent-source" ]
 }
 
 is_vendored() {
-  [ ! -f "$kit_root/project-profile.template.md" ] && [ -d "$kit_root/agent-source" ]
+  [ -f "$kit_root/KIT_VERSION" ] && [ -d "$kit_root/agent-source" ]
 }
 
 require_kit_checkout() {
@@ -197,7 +202,7 @@ resolve_repo_root() {
 }
 
 copy_kit_owned_files() {
-  for required_path in POLICY.md agent-source templates guardrails scripts/sdd.sh VERSION; do
+  for required_path in POLICY.md agent-source "$profile_template_path" scripts/sdd.sh VERSION; do
     if [ ! -e "$kit_root/$required_path" ]; then
       echo "sdd: kit checkout is missing $required_path" >&2
       exit 1
@@ -208,15 +213,13 @@ copy_kit_owned_files() {
   mkdir -p "$kit_stage_dir/scripts"
   cp "$kit_root/POLICY.md" "$kit_stage_dir/POLICY.md"
   cp -R "$kit_root/agent-source" "$kit_stage_dir/agent-source"
-  cp -R "$kit_root/templates" "$kit_stage_dir/templates"
-  cp -R "$kit_root/guardrails" "$kit_stage_dir/guardrails"
   cp "$kit_root/scripts/sdd.sh" "$kit_stage_dir/scripts/sdd.sh"
   chmod +x "$kit_stage_dir/scripts/sdd.sh"
   cp "$kit_root/VERSION" "$kit_stage_dir/KIT_VERSION"
 
   if [ "$command" = "update" ]; then
     update_backup_dir=$(mktemp -d "$sdd_dir/.kit-backup.XXXXXX")
-    for relative_path in $kit_owned_paths; do
+    for relative_path in $kit_owned_paths $legacy_kit_paths; do
       if [ -e "$sdd_dir/$relative_path" ]; then
         mkdir -p "$(dirname "$update_backup_dir/$relative_path")"
         mv "$sdd_dir/$relative_path" "$update_backup_dir/$relative_path"
@@ -601,7 +604,7 @@ case "$command" in
     mkdir -p "$sdd_dir"
     init_cleanup_dir="$sdd_dir"
     copy_kit_owned_files
-    cp "$kit_root/project-profile.template.md" "$sdd_dir/project-profile.md"
+    cp "$kit_root/$profile_template_path" "$sdd_dir/project-profile.md"
     write_default_agents_conf
     mkdir -p "$sdd_dir/project-skills"
     cat > "$sdd_dir/project-skills/README.md" <<'EOF'
@@ -629,8 +632,9 @@ sdd: initialized $sdd_dir (kit version $(cat "$kit_root/VERSION"))
 Next steps:
   1. Complete .sdd/project-profile.md (or run the bootstrap-specs skill to
      establish missing foundation documents and fill the profile).
-  2. Optionally copy .sdd/guardrails/*.yml to .github/workflows/ and adapt
-     their path configuration.
+  2. Optionally install the guardrail workflows (run the setup-sdd skill, or
+     copy .sdd/agent-source/skills/setup-sdd/assets/guardrails/*.yml to
+     .github/workflows/ and adapt their path configuration).
   3. Commit .sdd/ together with the rendered agent files.
 EOF
     ;;

@@ -27,6 +27,8 @@ traceability, verification, or Git-safety rules.
   current approved Implementation Ready record when one exists.
 - Use `submit-pr` after implementation is complete and pull-request submission
   is requested.
+- Use `setup-sdd` to complete kit adoption, install optional guardrail
+  workflows, pull a newer kit version, or repair rendered agent-file drift.
 
 Do not invoke multiple implementation workflows for the same change. Keep
 ticket updates inside the stage that owns them.
