@@ -64,7 +64,8 @@ Material review changes return to refinement.
 - Apply required changelog, version, lockfile, documentation, and delivery-plan
   updates in the same change.
 - Report passed, failed, and skipped checks faithfully.
-- Record concise completion evidence using the lifecycle-evidence template.
+- Record concise completion evidence using `assets/lifecycle-evidence.md`
+  bundled with this skill.
 - For a tracked item, update its stable lifecycle record and accurate active or
   blocked state.
 

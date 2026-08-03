@@ -32,7 +32,8 @@ existing documents can be promoted or referenced instead of rewritten.
 
 Work through missing documents in dependency order — product specification,
 architecture record, feature-contract convention, delivery roadmap, and
-release policy — using the kit templates in `.sdd/templates/`:
+release policy — using the templates bundled with this skill under
+`assets/`:
 
 - **Product specification** (`product-spec.md` template): capture purpose,
   users, scope, and intended behavior from the user. For an existing codebase,
@@ -46,8 +47,9 @@ release policy — using the kit templates in `.sdd/templates/`:
 - **Release policy** (`releases.md` template): define triggers, version
   interpretation, bookkeeping, verification, and post-merge actions.
 
-Establish a changelog and repository pull-request template from the kit
-templates when the configured paths do not exist. Establish the feature-
+Establish a changelog and repository pull-request template from the bundled
+`changelog-entry.md` and `pull-request-template.md` when the configured paths
+do not exist. Establish the feature-
 contract directory and naming convention; create a feature brief only for a
 feature whose intent is approved.
 

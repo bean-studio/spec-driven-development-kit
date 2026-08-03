@@ -8,13 +8,16 @@ assuming a particular product domain or issue tracker.
 ## What Is Included
 
 - `POLICY.md`: the shared engineering principles.
-- `project-profile.template.md`: one place for repository-specific authorities,
-  paths, conventions, and commands.
 - `agent-source/instructions.md`: the canonical routing instructions.
-- `agent-source/skills/`: four focused workflows.
-- `templates/`: optional specification, handoff, evidence, release, and
-  pull-request skeletons.
-- `guardrails/`: optional GitHub Actions backstops.
+- `agent-source/skills/`: five focused workflows, each bundling the resources
+  it uses as supporting files under its `assets/` directory:
+  - `bootstrap-specs` carries the specification, architecture, roadmap,
+    release, feature-brief, changelog, and pull-request skeletons;
+  - `refine-ticket` carries the Implementation Ready record template;
+  - `implement-change` carries the lifecycle-evidence template;
+  - `submit-pr` uses the repository's established pull-request template;
+  - `setup-sdd` carries the project-profile template and the optional GitHub
+    Actions guardrail backstops, and owns kit setup, updates, and sync repair.
 - `scripts/sdd.sh`: installs the kit and keeps Claude Code, Codex, and GitHub
   Copilot discovery files synchronized.
 
@@ -31,6 +34,10 @@ implement-change -> classify, decide, implement, release bookkeeping, verify
         v
 submit-pr        -> validate the final diff and evidence, then open the PR
 ```
+
+A fifth skill, `setup-sdd`, sits outside the product flow: it completes kit
+adoption, installs the optional guardrail workflows, pulls kit updates, and
+repairs rendered-file drift.
 
 `implement-change` is the only implementation workflow. It works for both
 tracked and ad-hoc changes. When an approved Implementation Ready record exists,
@@ -67,8 +74,9 @@ removed, so a hand-owned file at the same path survives.
 Then:
 
 1. Complete `.sdd/project-profile.md`, or use `bootstrap-specs`.
-2. Optionally copy `.sdd/guardrails/*.yml` to `.github/workflows/` and adapt
-   their clearly marked path settings.
+2. Optionally install the guardrail workflows with the `setup-sdd` skill, or
+   copy them from `.sdd/agent-source/skills/setup-sdd/assets/guardrails/` to
+   `.github/workflows/` and adapt their clearly marked path settings.
 3. Commit `.sdd/` together with the rendered agent files.
 4. Try one mechanical change and one behavior change.
 
@@ -131,5 +139,5 @@ Keep the shared policy generic. Put these project facts in
 | Level | Mechanism | Purpose |
 |---|---|---|
 | Policy | Policy and agent instructions | Defines judgment and boundaries |
-| Workflow | Four skills and small templates | Makes common work repeatable |
+| Workflow | Five skills with bundled templates | Makes common work repeatable |
 | Guardrail | Optional pull-request checks | Enforces minimum evidence |
