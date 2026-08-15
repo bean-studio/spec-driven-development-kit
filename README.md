@@ -8,7 +8,10 @@ assuming a particular product domain or issue tracker.
 ## What Is Included
 
 - `POLICY.md`: the shared engineering principles.
-- `agent-source/instructions.md`: the canonical routing instructions.
+- `agent-source/instructions.md`: the canonical agent manual — conversation
+  style, code quality, command and dependency safety, workflow routing, and
+  the user-override boundary. It points to the project profile for concrete
+  values rather than restating them.
 - `agent-source/skills/`: five focused workflows, each bundling the resources
   it uses as supporting files under its `assets/` directory:
   - `bootstrap-specs` carries the specification, architecture, roadmap,
@@ -20,6 +23,46 @@ assuming a particular product domain or issue tracker.
     Actions guardrail backstops, and owns kit setup, updates, and sync repair.
 - `scripts/sdd.sh`: installs the kit and keeps Claude Code, Codex, and GitHub
   Copilot discovery files synchronized.
+
+## Three Files, Three Roles
+
+`POLICY.md`, `agent-source/instructions.md`, and `.sdd/project-profile.md` are
+three different kinds of statement, not three documents about the same thing.
+Content in the wrong one is the most common way an adoption goes wrong.
+
+| | `POLICY.md` | `instructions.md` | `project-profile.md` |
+|---|---|---|---|
+| Answers | What must be true of any change | How to behave, and where to look | What the values actually are here |
+| Scope | Any repository | Any repository | One repository |
+| Owner | Kit | Kit | The adopting team |
+| Survives `sdd.sh update` | No, replaced | No, replaced | Yes, preserved |
+| Rendered into agent files | No | Yes | No |
+| Read when | A clause is cited | Every turn, always loaded | A value is needed |
+| Names a repo path or command | Never | Never | Always |
+| Form | Numbered citable clauses | Prose rules and pointers | Tables of values |
+
+`POLICY.md` is the constitution: numbered principles that hold regardless of
+language, tracker, or domain, phrased so a review comment can cite them.
+
+`instructions.md` is the manual an agent has open at all times, rendered into
+every supported agent product. Because it is always in context, it states
+behavior and navigation and points at the profile for concrete values instead
+of restating them.
+
+`project-profile.md` is the only file that knows which repository it is in:
+authorities, paths, commands, issue states, invariants, and integrations.
+
+When a new rule needs a home, ask in this order:
+
+1. Is it a name, path, command, identifier, or number? Project profile.
+2. Would it hold in an unrelated repository, and would you cite it in a
+   review? Policy.
+3. Is it about how the agent behaves or where it looks? Agent instructions.
+4. Is it a multi-step procedure with a completion contract? A skill — kit-wide
+   under `agent-source/skills/`, repository-only under `.sdd/project-skills/`.
+
+`POLICY.md` §10 states the same routing rule and the precedence between these
+files. See [What To Configure](#what-to-configure) for the profile checklist.
 
 ## Operating Model
 
@@ -65,12 +108,6 @@ This vendors the kit into `your-repo/.sdd/`, creates
 | Codex | `AGENTS.md` | `.codex/skills/` |
 | GitHub Copilot | `.github/copilot-instructions.md` | `.github/skills/` |
 
-Which of these agents are rendered is repository-owned configuration in
-`.sdd/agents.conf`. Comment out or delete a line to stop rendering for that
-agent; the next `sync` removes the files it generated, and `check` reports any
-that reappear as drift. Only files carrying the generated-file marker are
-removed, so a hand-owned file at the same path survives.
-
 Then:
 
 1. Complete `.sdd/project-profile.md`, or use `bootstrap-specs`.
@@ -108,8 +145,7 @@ rendered files.
   /path/to/new-kit/scripts/sdd.sh update /path/to/your-repo
   ```
 
-  Update preserves `.sdd/project-profile.md`, `.sdd/project-skills/`, and
-  `.sdd/agents.conf`.
+  Update preserves `.sdd/project-profile.md` and `.sdd/project-skills/`.
   Kit-owned files are staged and backed up so a failed render restores the
   previous kit state.
 

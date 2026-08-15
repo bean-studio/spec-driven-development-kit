@@ -35,6 +35,9 @@ decision work, obtain a decision instead of choosing the easiest route.
 ## 3. Decisions Before Code
 
 - Record a new or changed material decision in the document that owns it.
+- Read the governing upstream documents before editing a downstream one. Search
+  for the governing clause first and read only the matched sections; full-read a
+  document only when it owns the decision at hand.
 - Propagate an approved upstream change to affected downstream contracts only
   with approval.
 - Keep contract declarations and acceptance criteria aligned.
@@ -88,8 +91,8 @@ approval for a newly discovered material decision.
 
 - Derive verification from measurable acceptance criteria and project
   invariants.
-- Test hard rules, state transitions, and contract shapes before lower-risk CRUD
-  or presentation details when risk warrants that order.
+- Order tests by risk: hard rules, state transitions, and contract shapes before
+  CRUD and presentation details.
 - Use the cheapest focused check that can falsify the implementation hypothesis,
   then broaden verification according to blast radius.
 - Report passed, failed, and skipped checks faithfully.
@@ -134,3 +137,15 @@ approval for a newly discovered material decision.
 - Mark generated files and reject stale generated outputs in CI.
 - Put project-specific facts and rules in the project profile rather than
   forking shared skills without need.
+- Route a new rule to its owning file. A concrete value, path, command, state,
+  or identifier belongs in the project profile. A principle that holds for any
+  repository belongs in this policy. Agent behavior and navigation belong in
+  the shared agent instructions. A multi-step procedure with a completion
+  contract belongs in a skill.
+- Precedence on conflict: the project profile is authoritative for project
+  facts, and this policy is authoritative for approval, traceability,
+  verification, and Git-safety guarantees. A profile may adapt facts but may
+  not silently weaken a guarantee.
+- Shared agent instructions win neither contest. They may compress a policy
+  clause that must be available without a second read; any other disagreement
+  with this policy or the profile is drift to repair at the canonical source.
