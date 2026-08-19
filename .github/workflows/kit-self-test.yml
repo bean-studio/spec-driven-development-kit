@@ -33,7 +33,10 @@ jobs:
           target="$RUNNER_TEMP/target"
           for root in .claude/skills .codex/skills .github/skills; do
             for f in bootstrap-specs/assets/product-spec.md \
+                     refine-ticket/assets/work-item-description.md \
                      refine-ticket/assets/implementation-ready.md \
+                     refine-ticket/assets/epic-description.md \
+                     refine-ticket/assets/decomposition-ready.md \
                      implement-change/assets/lifecycle-evidence.md \
                      setup-sdd/assets/guardrails/agent-sync-check.yml \
                      setup-sdd/assets/guardrails/spec-decision-check.yml \

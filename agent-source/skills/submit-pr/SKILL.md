@@ -12,8 +12,9 @@ description: >-
 
 Start only after implementation is complete and submission is requested. Own
 final diff and evidence validation, template completion, and pull-request
-creation. Do not refine scope, invent decisions, edit repository content, or
-close a work item.
+creation. Do not refine scope (that is `refine-ticket`) or edit repository
+content (that is `implement-change`); do not invent decisions or close a work
+item.
 
 ## 1. Establish The Pull-Request Boundary
 
@@ -22,36 +23,28 @@ close a work item.
   and substantive hunks.
 - Reconcile any existing pull request for the branch.
 - If intended work is uncommitted, surface it and obtain any required commit or
-  branch approval. Never commit on the default branch.
+  branch approval.
 
 ## 2. Confirm Decision Evidence
 
-For every implementation change, require one of:
-
-- the changed decision files that own new or changed behavior;
-- a cited existing authoritative clause when implementation restored explicit-
-  spec conformance;
-- a mechanical/tooling rationale showing no behavior or contract impact.
-
-Do not use the no-decision-edit route to avoid recording a material decision.
-Apply the configured label only when its rationale is present in the pull-request
-body.
+Require the decision evidence `POLICY.md` §9 defines for every implementation
+change. Do not use the no-decision-edit route to avoid recording a material
+decision. Apply the configured label only when its rationale is present in the
+pull-request body.
 
 ## 3. Validate Release Evidence
 
-Validate the implementation's release assessment and bookkeeping against the
-final diff. If a trigger is met, require aligned delivery status, changelog,
-manifests, and lockfiles. If no trigger is met, require its rationale. Missing
-or contradictory bookkeeping means implementation is incomplete; return to
-that stage instead of editing release files here.
+Validate release bookkeeping against the final diff per `POLICY.md` §8: if a
+trigger is met, require aligned delivery status, changelog, manifests, and
+lockfiles; if not, require its rationale. Do not edit release files here —
+missing or contradictory bookkeeping returns implementation to that stage.
 
 ## 4. Verify Before Submission
 
 Reuse recorded checks when the change has not moved since they ran. Run only
 missing, affected, or submission-specific checks appropriate to the actual
-diff and release impact. Report failed and skipped checks faithfully. Do not
-submit a change that fails required verification without explicit exception
-handling defined by team policy.
+diff and release impact. Do not submit a change that fails required
+verification without explicit exception handling defined by team policy.
 
 ## 5. Build And Open The Pull Request
 

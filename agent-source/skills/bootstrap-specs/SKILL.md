@@ -12,9 +12,10 @@ description: >-
 # Bootstrap Specs
 
 Own the creation of the repository's authority and operational documents and
-project profile. Do not implement features, refactor code, or invent product
-intent. Every statement written into an authority document must come from the
-user, an existing document, or observed current behavior labeled as such.
+project profile. Do not implement features or refactor code (that is
+`implement-change`), and do not invent product intent. Every statement written
+into an authority document must come from the user, an existing document, or
+observed current behavior labeled as such.
 
 ## 1. Inventory What Exists
 

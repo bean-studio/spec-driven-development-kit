@@ -16,4 +16,7 @@
 
 - Remaining limitations, migrations, or follow-up work.
 
-Omit empty sections. Describe outcomes rather than copying commit subjects.
+Omit empty sections. One entry per user-visible outcome, in one or two
+sentences: what changed and what a reader must do about it. Rationale,
+before-state, and mechanics live in the commit, the pull request, and the
+lifecycle record; do not restate them here.
