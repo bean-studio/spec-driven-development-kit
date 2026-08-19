@@ -27,7 +27,6 @@
 - Merged at:
 - Final acceptance evidence:
 - Final limitations or follow-up:
-- Closed by:
 
 Update one stable lifecycle record instead of adding a new record at every
 stage. Preserve earlier evidence when appending later outcomes.

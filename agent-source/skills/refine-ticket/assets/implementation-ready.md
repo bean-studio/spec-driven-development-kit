@@ -1,19 +1,11 @@
 ## Implementation Ready
 
 - Implementation ready: Yes | No
-- Approved by: identity and date
+- Approved: date
 - Classification: explicit-spec drift | existing-behavior gap or change | net-new capability | mechanical or tooling
-- Objective:
-- Scope:
-- Exclusions:
-- Acceptance criteria:
-- Decision basis and owning files:
+- Resolved decisions: one per line — the answer, its date, the owning repository file, and any accepted exposure
 - Expected implementation boundary:
 - Verification:
 - Release impact:
 - Dependencies and blockers:
 - Proposed branch:
-
-Set readiness to **Yes** only when scope and material decisions are approved,
-acceptance criteria are measurable, verification and release impact are known,
-and no unresolved blocker prevents implementation.

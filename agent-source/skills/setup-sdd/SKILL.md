@@ -24,14 +24,20 @@ After `sdd.sh init` has vendored the kit into `.sdd/`:
 1. Confirm `.sdd/project-profile.md` is completed. If sections are missing,
    route to `bootstrap-specs`; a copy of the blank profile ships with this
    skill as `assets/project-profile.template.md` for reference.
-2. Offer the optional guardrail workflows bundled with this skill under
+2. If the repository already had agent instruction files or ad-hoc convention
+   documents, audit them and route each rule to its owning file per
+   `POLICY.md` §10. Preserve directory-scoped and vendor-specific rules rather
+   than flattening them, and do not delete user content without approval. Hand
+   any product, UX, or architecture content found in those documents to
+   `bootstrap-specs` instead of folding it into the profile or instructions.
+3. Offer the optional guardrail workflows bundled with this skill under
    `assets/guardrails/`:
    - `agent-sync-check.yml` fails CI when rendered agent files are stale.
    - `spec-decision-check.yml` requires decision evidence on pull requests.
    Copy the accepted ones to `.github/workflows/` and adapt their clearly
    marked settings (implementation and decision paths, label name) to the
    project profile. Obtain approval before adding CI checks.
-3. Commit `.sdd/` together with the rendered agent files and
+4. Commit `.sdd/` together with the rendered agent files and
    `.sdd/rendered-support.list`.
 
 ## Keep Rendered Files Current

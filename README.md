@@ -16,7 +16,8 @@ assuming a particular product domain or issue tracker.
   it uses as supporting files under its `assets/` directory:
   - `bootstrap-specs` carries the specification, architecture, roadmap,
     release, feature-brief, changelog, and pull-request skeletons;
-  - `refine-ticket` carries the Implementation Ready record template;
+  - `refine-ticket` carries the work-item description and Implementation Ready
+    record templates;
   - `implement-change` carries the lifecycle-evidence template;
   - `submit-pr` uses the repository's established pull-request template;
   - `setup-sdd` carries the project-profile template and the optional GitHub

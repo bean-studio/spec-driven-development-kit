@@ -39,9 +39,7 @@ approval for any new material decision or expanded scope.
 
 - Reconcile the worktree, local and remote branch, and any existing pull
   request.
-- Preserve unrelated work.
 - Create or reuse a branch named according to the project profile.
-- Never implement or commit on the default branch.
 - Record approved material decisions in their owning documents before or with
   code, propagating only the affected downstream contracts.
 
@@ -63,11 +61,10 @@ Material review changes return to refinement.
   risk and blast radius.
 - Apply required changelog, version, lockfile, documentation, and delivery-plan
   updates in the same change.
-- Report passed, failed, and skipped checks faithfully.
 - Record concise completion evidence using `assets/lifecycle-evidence.md`
   bundled with this skill.
 - For a tracked item, update its stable lifecycle record and accurate active or
   blocked state.
 
 Stop after the verified repository change. Pull-request submission is a
-separate workflow.
+separate workflow (`submit-pr`).

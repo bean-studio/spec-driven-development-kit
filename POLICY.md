@@ -3,6 +3,8 @@
 ## 1. Authority
 
 - A work item is intake, not product authority.
+- Decision ownership attaches to documents, not people. A work item names people
+  only through its tracker's own fields, never in text.
 - Product specifications own intended behavior.
 - Architecture records own cross-cutting technical decisions.
 - Feature contracts connect product intent to implementation and acceptance.
@@ -47,8 +49,9 @@ decision work, obtain a decision instead of choosing the easiest route.
 
 ## 4. Workflow Boundaries
 
-- Refinement owns approved scope and the implementation handoff. It does not
-  implement.
+- Refinement owns approved scope, the implementation handoff, and the
+  decomposition of a container work item into separately deliverable children.
+  It does not implement.
 - Implementation owns the verified repository change, including required
   decision propagation, release bookkeeping, and delivery-status updates. It
   does not submit a pull request or close the work item.
@@ -108,7 +111,9 @@ approval for a newly discovered material decision.
   release bookkeeping in the same change unless its profile explicitly defines a
   different release boundary.
 - Keep every version-bearing manifest and corresponding lockfile aligned.
-- Write changelog entries for users and operators, not as a raw commit list.
+- Write changelog entries for users and operators at release-note altitude: one
+  entry per outcome, not per commit, and not a second home for the rationale its
+  commit and pull request already carry.
 - Pure documentation, specification-only, refactor, and tooling work normally do
   not require a product release unless the project profile says otherwise.
 - Post-merge tag or publish steps required by the project's release policy are
